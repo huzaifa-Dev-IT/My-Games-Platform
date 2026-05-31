@@ -1044,6 +1044,38 @@
             const msg = document.getElementById('new-high-score-msg');
             if(isNewHighScore) msg.classList.remove('hidden');
             else msg.classList.add('hidden');
+            
+            // Save progress to MongoDB
+            const savedUserStr = localStorage.getItem('bp_user');
+            if (savedUserStr) {
+                try {
+                    const savedUser = JSON.parse(savedUserStr);
+                    const coinsEarned = Math.floor(stats.score / 100) + waveNumber;
+                    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                        ? 'http://localhost:3000/api' 
+                        : 'https://balloon-pop-online.onrender.com/api';
+
+                    fetch(`${API_BASE}/user/${savedUser.username}/save-progress`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            gameId: 'arcane_survivor',
+                            score: stats.score,
+                            kills: stats.kills,
+                            coinsEarned: coinsEarned
+                        })
+                    }).then(res => res.json())
+                    .then(data => {
+                        console.log('Progress saved:', data);
+                        if(data.success && data.newCoins !== undefined) {
+                            savedUser.coins = data.newCoins;
+                            localStorage.setItem('bp_user', JSON.stringify(savedUser));
+                        }
+                    }).catch(err => console.error('Error saving progress:', err));
+                } catch(e) {
+                    console.error('Error parsing user data:', e);
+                }
+            }
         }
 
         function updateHUD() {

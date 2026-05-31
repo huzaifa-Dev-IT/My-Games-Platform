@@ -41,6 +41,7 @@ const UserSchema = new mongoose.Schema({
   highscore: { type: Number, default: 1 },
   totalGamesPlayed: { type: Number, default: 0 },
   totalBalloonsPopped: { type: Number, default: 0 },
+  gameStats: { type: mongoose.Schema.Types.Mixed, default: {} },
   lastLogin: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
@@ -127,7 +128,7 @@ app.get('/api/user/:username', async (req, res) => {
 app.post('/api/user/:username/save-progress', async (req, res) => {
   try {
     const { username } = req.params;
-    const { coinsEarned, balloonsPopped, levelReached, gameDuration } = req.body;
+    const { gameId, coinsEarned, balloonsPopped, levelReached, gameDuration, score, kills } = req.body;
     
     const user = await User.findOne({ username });
     if (!user) {
@@ -140,11 +141,25 @@ app.post('/api/user/:username/save-progress', async (req, res) => {
     // Update user
     user.coins += safeCoins;
     user.totalGamesPlayed += 1;
-    user.totalBalloonsPopped += balloonsPopped || 0;
-    if (levelReached > user.highscore) {
-      user.highscore = levelReached;
-    }
     user.lastLogin = new Date();
+    
+    // Legacy support for Balloon Pop
+    if (balloonsPopped) user.totalBalloonsPopped += balloonsPopped;
+    if (levelReached > user.highscore) user.highscore = levelReached;
+
+    // Generic game stats support for new games
+    if (gameId) {
+      if (!user.gameStats) user.gameStats = {};
+      if (!user.gameStats[gameId]) user.gameStats[gameId] = {};
+      
+      if (score && score > (user.gameStats[gameId].highScore || 0)) {
+        user.gameStats[gameId].highScore = score;
+      }
+      if (kills) {
+        user.gameStats[gameId].totalKills = (user.gameStats[gameId].totalKills || 0) + kills;
+      }
+      user.markModified('gameStats');
+    }
     
     await user.save();
     
@@ -152,6 +167,7 @@ app.post('/api/user/:username/save-progress', async (req, res) => {
       success: true, 
       newCoins: user.coins,
       highscore: user.highscore,
+      gameStats: user.gameStats,
       message: `Progress saved! +${safeCoins} coins`
     });
     
@@ -273,7 +289,8 @@ function sanitizeUser(user) {
     equippedSkin: user.equippedSkin,
     highscore: user.highscore,
     totalGamesPlayed: user.totalGamesPlayed,
-    totalBalloonsPopped: user.totalBalloonsPopped
+    totalBalloonsPopped: user.totalBalloonsPopped,
+    gameStats: user.gameStats
   };
 }
 

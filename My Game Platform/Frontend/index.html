@@ -343,7 +343,8 @@
       <h2 class="text-4xl font-black brand-font mb-3 bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">WELCOME</h2>
       <p class="text-slate-400 mb-8">Enter your username to start your gaming journey</p>
       
-      <input type="text" id="username-input" class="input-field mb-4" placeholder="Username (3-20 characters)" maxlength="20">
+      <input type="text" id="username-input" class="input-field mb-2" placeholder="Username (3-20 characters)" maxlength="20">
+      <p class="text-xs font-bold text-red-400 mb-4 tracking-wide uppercase">REMEMBER YOUR USERNAME, YOU WON'T BE ABLE TO RECOVER IT LATER</p>
       <p id="login-error" class="text-red-400 text-sm mb-4 hidden"></p>
       
       <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-bold py-4 rounded-2xl transition-all transform hover:scale-105 shadow-xl hover:shadow-violet-500/50 mb-4">
@@ -400,7 +401,7 @@
   <script>
     const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
       ? 'http://localhost:3000/api' 
-      : 'https://gaming-platform-backend-hyr3.onrender.com/api';
+      : 'https://balloon-pop-online.onrender.com/api';
     let currentUser = null;
 
     // Load saved user
