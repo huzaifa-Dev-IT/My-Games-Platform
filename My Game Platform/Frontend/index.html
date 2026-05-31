@@ -468,6 +468,14 @@
     }
 
     function launchGame(gameId) {
+      if (!currentUser) {
+        document.getElementById('login-modal').classList.remove('hidden');
+        const errEl = document.getElementById('login-error');
+        errEl.textContent = 'You must login to play games!';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      
       if(gameId === 'balloon_pop') {
         window.location.href = 'game.html';
       } else if(gameId === 'arcane_survivor') {

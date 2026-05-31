@@ -1223,7 +1223,15 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
-        document.getElementById('start-btn').addEventListener('click', () => { initAudio(); initGame(); });
+        document.getElementById('start-btn').addEventListener('click', () => { 
+            if (!localStorage.getItem('bp_user')) {
+                alert('You must be logged in to play! Redirecting to home...');
+                window.location.href = '../index.html';
+                return;
+            }
+            initAudio(); 
+            initGame(); 
+        });
         document.getElementById('restart-btn').addEventListener('click', () => { initGame(); });
         
         window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });

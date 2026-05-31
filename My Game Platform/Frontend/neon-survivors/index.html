@@ -2602,6 +2602,11 @@
             btnSoundFX.classList.add('text-cyan-400');
 
             document.getElementById('btn-start').addEventListener('click', () => {
+                if (!localStorage.getItem('bp_user')) {
+                    alert('You must be logged in to play! Redirecting to home...');
+                    window.location.href = '../index.html';
+                    return;
+                }
                 AudioSynth.startAmbientSynthLoop();
                 document.getElementById('start-screen').classList.add('hidden');
                 document.getElementById('hud').classList.remove('hidden');

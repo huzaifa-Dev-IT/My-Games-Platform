@@ -14,13 +14,13 @@ const server = http.createServer(app);
 // Socket.io setup with CORS
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
 
 // Middleware
-app.use(cors({ origin: process.env.CLIENT_URL }));
+app.use(cors({ origin: "*" }));
 app.use(express.json({ limit: '10mb' }));
 
 // MongoDB Connection
