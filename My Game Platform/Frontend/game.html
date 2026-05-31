@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Balloon Pop Jumper - Multiplayer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <!-- GameDistribution SDK (Ads) - Replace YOUR_GAME_ID after approval -->
+    <script src="https://html5.api.gamedistribution.com/main.min.js"></script>
+    <script>
+      window.GD_OPTIONS = {
+        gameId: 'YOUR_GAME_ID_HERE', // <-- Replace after GameDistribution approval
+        onEvent: function(event) {
+          if (event.name === 'SDK_READY') {
+            console.log('🎮 GameDistribution SDK ready');
+            window.gdReady = true;
+          }
+          if (event.name === 'SDK_GAME_PAUSE') {
+            console.log('🎮 Game paused for ad');
+          }
+          if (event.name === 'SDK_GAME_START') {
+            console.log('🎮 Game resumed after ad');
+          }
+        }
+      };
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap');
+        
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #87CEEB;
+            font-family: 'Nunito', sans-serif; touch-action: none;
+        }
+        
+        h1, h2, h3, .brand-font { font-family: 'Fredoka One', cursive; }
+
+        #game-canvas { display: block; width: 100%; height: 100%; }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px);
+            z-index: 10; transition: opacity 0.3s;
+        }
+        .hidden { display: none !important; }
+
+        .btn {
+            background: linear-gradient(to bottom, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+            border: 4px solid #fff; box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+            color: #d13875; transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .btn:active { transform: scale(0.95) translateY(4px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .btn-shop { background: linear-gradient(to bottom, #a18cd1 0%, #fbc2eb 100%); color: #5b4b8a; }
+
+        .shop-item { transition: transform 0.2s; }
+        .shop-item.locked { filter: grayscale(100%); opacity: 0.7; }
+        .shop-item:active { transform: scale(0.9); }
+        .shop-item.selected { border-color: #4ade80; box-shadow: 0 0 15px #4ade80; }
+
+        #hud {
+            position: absolute; top: 0; left: 0; width: 100%; padding: 1rem;
+            display: flex; justify-content: space-between; pointer-events: none; z-index: 5;
+        }
+        .hud-text {
+            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0 4px 8px rgba(0,0,0,0.3);
+            font-size: 1.5rem; color: #333;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shaking { animation: shake 0.2s; animation-iteration-count: 1; }
+
+        @keyframes flashRed {
+            0% { background-color: rgba(255, 0, 0, 0.5); }
+            100% { background-color: transparent; }
+        }
+        .flash-red-active { animation: flashRed 0.5s ease-out; }
+        
+        .flash-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 20;
+        }
+        
+        /* Login Modal */
+        #login-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+        .login-box {
+            background: white; padding: 2rem; border-radius: 1rem;
+            max-width: 400px; width: 90%; text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .login-input {
+            width: 100%; padding: 0.75rem; margin: 0.5rem 0;
+            border: 2px solid #ddd; border-radius: 0.5rem; font-size: 1rem;
+        }
+        .login-input:focus { outline: none; border-color: #ec4899; }
+        
+        /* Multiplayer UI */
+        #multiplayer-panel {
+            position: absolute; top: 1rem; right: 1rem;
+            background: rgba(255,255,255,0.9); padding: 0.5rem 1rem;
+            border-radius: 1rem; font-size: 0.9rem; z-index: 6;
+            display: none;
+        }
+        #multiplayer-panel.visible { display: block; }
+        
+        /* Chat */
+        #chat-panel {
+            position: absolute; bottom: 1rem; left: 1rem; right: 1rem;
+            background: rgba(255,255,255,0.95); border-radius: 1rem;
+            padding: 0.5rem; z-index: 7; display: none; max-height: 150px;
+            overflow-y: auto;
+        }
+        #chat-panel.visible { display: block; }
+        .chat-message { margin: 0.25rem 0; font-size: 0.85rem; }
+        .chat-message strong { color: #ec4899; }
+        
+        /* Loading */
+        #loading {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #87CEEB; display: flex; justify-content: center; align-items: center;
+            z-index: 9999; font-family: 'Nunito', sans-serif; font-size: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loading">🎈 Loading Balloon Pop...</div>
+
+    <!-- Login Modal (First Time) -->
+    <div id="login-modal" class="hidden">
+        <div class="login-box">
+            <h2 class="text-2xl font-bold mb-4 brand-font text-pink-500">Welcome!</h2>
+            <p class="text-gray-600 mb-4">Choose a username to save your progress:</p>
+            <input type="text" id="username-input" class="login-input" placeholder="Username (3-20 chars)" maxlength="20">
+            <p id="login-error" class="text-red-500 text-sm mb-2 hidden"></p>
+            <button id="login-btn" class="btn brand-font text-xl py-2 px-6 rounded-full w-full mt-2">PLAY NOW 🎈</button>
+            <p class="text-xs text-gray-400 mt-4">No password needed • Progress saved on server</p>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden brand-font">
+        <div class="flex items-center gap-2">
+            <span class="text-4xl text-yellow-400 drop-shadow-md">🪙</span>
+            <span id="coin-display" class="hud-text">0</span>
+        </div>
+        <div class="flex flex-col items-end">
+            <div class="hud-text text-3xl text-pink-500" id="score-display">0% Target</div>
+            <div class="hud-text text-sm text-gray-600">Lvl <span id="highscore-display">1</span></div>
+        </div>
+    </div>
+
+    <!-- Multiplayer Panel -->
+    <div id="multiplayer-panel" class="brand-font">
+        <span id="room-display">Room: </span>
+        <button id="copy-room-btn" class="ml-2 text-xs bg-blue-400 text-white px-2 py-1 rounded">📋 Copy</button>
+    </div>
+
+    <!-- Chat Panel -->
+    <div id="chat-panel">
+        <div id="chat-messages"></div>
+        <div class="flex gap-2 mt-2">
+            <input type="text" id="chat-input" class="flex-1 px-2 py-1 border rounded text-sm" placeholder="Type...">
+            <button id="chat-send" class="bg-pink-400 text-white px-3 py-1 rounded text-sm">Send</button>
+        </div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="menu-screen" class="overlay">
+        <div class="bg-white/80 p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full mx-4 border-4 border-pink-200">
+            <h1 class="text-5xl text-pink-500 mb-2 drop-shadow-sm">Balloon Pop</h1>
+            <h2 class="text-3xl text-blue-400 mb-6 drop-shadow-sm">Jumper</h2>
+            <p class="text-gray-700 mb-6 font-bold">
+                👆 Tap to Jump<br>
+                ↔️ Drag to Move<br>
+                🎈 Pop balloons, avoid spikes & lasers!
+            </p>
+            <button id="start-btn" class="btn brand-font text-2xl py-3 px-8 rounded-full w-full mb-4">PLAY</button>
+            <button id="open-shop-btn" class="btn btn-shop brand-font text-xl py-3 px-8 rounded-full w-full flex justify-center items-center gap-2">
+                <span>🛒</span> Shop
+            </button>
+            <button id="multiplayer-btn" class="mt-4 bg-purple-400 hover:bg-purple-500 text-white font-bold py-2 px-6 rounded-full transition-colors">
+                👥 Multiplayer Room
+            </button>
+        </div>
+    </div>
+
+    <!-- Level Complete Screen -->
+    <div id="level-complete-screen" class="overlay hidden">
+        <div class="bg-white/90 p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full mx-4 border-4 border-green-300">
+            <h1 class="text-5xl text-green-500 mb-4 drop-shadow-sm">LEVEL PASSED!</h1>
+            <p class="text-xl text-gray-700 mb-2 font-bold">Balloons Popped: <span id="level-popped" class="text-pink-500">0</span> / <span id="level-total">0</span></p>
+            <p class="text-lg text-gray-600 mb-6 font-bold">Bonus Coins: +<span id="level-bonus-coins" class="text-yellow-500">0</span></p>
+            
+            <!-- Rewarded Ad Button -->
+            <button id="watch-ad-btn" class="mb-4 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full w-full flex items-center justify-center gap-2">
+                🎁 Watch Ad for +20 Coins
+            </button>
+            
+            <button id="next-level-btn" class="btn brand-font text-2xl py-3 px-8 rounded-full w-full mb-4">NEXT LEVEL</button>
+            <button class="menu-return-btn bg-blue-300 hover:bg-blue-400 text-white font-bold py-3 px-8 rounded-full w-full transition-colors border-4 border-white shadow-md">MAIN MENU</button>
+        </div>
+    </div>
+
+    <!-- Shop Screen -->
+    <div id="shop-screen" class="overlay hidden">
+        <div class="bg-white/90 p-6 rounded-3xl shadow-2xl max-w-md w-full mx-4 border-4 border-purple-300 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl text-purple-600 brand-font">Skin Shop</h2>
+                <div class="flex items-center gap-2 font-bold text-xl">
+                    <span>🪙</span> <span id="shop-coin-display">0</span>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4" id="shop-items-container">
+                <!-- Shop items injected here via JS -->
+            </div>
+
+            <button id="close-shop-btn" class="mt-6 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-full w-full transition-colors">Back to Menu</button>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameover-screen" class="overlay hidden">
+        <div class="bg-white/90 p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full mx-4 border-4 border-red-300">
+            <h1 class="text-5xl text-red-500 mb-4 drop-shadow-sm" id="gameover-title">POP!</h1>
+            <p class="text-lg text-gray-600 mb-6 font-bold">Coins Collected: +<span id="final-coins" class="text-yellow-500">0</span></p>
+            <p class="text-md text-red-600 mb-4 font-bold" id="gameover-reason"></p>
+            
+            <!-- Rewarded Ad for Revive -->
+            <button id="revive-ad-btn" class="mb-4 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full w-full flex items-center justify-center gap-2 hidden">
+                🎁 Watch Ad to Revive!
+            </button>
+            
+            <button id="restart-btn" class="btn brand-font text-2xl py-3 px-8 rounded-full w-full mb-4">TRY AGAIN</button>
+            <button class="menu-return-btn bg-blue-300 hover:bg-blue-400 text-white font-bold py-3 px-8 rounded-full w-full transition-colors border-4 border-white shadow-md">MAIN MENU</button>
+        </div>
+    </div>
+
+    <div id="flash-overlay" class="flash-overlay"></div>
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Touch Controls for mobile jumping -->
+    <div id="touch-controls" class="absolute bottom-4 left-0 w-full flex justify-around px-8 hidden z-10 pointer-events-none">
+        <button id="btn-left" class="pointer-events-auto bg-white/50 backdrop-blur-sm border-2 border-white w-20 h-20 rounded-full text-3xl shadow-lg active:bg-white/80 transition-colors">⬅️</button>
+        <button id="btn-jump" class="pointer-events-auto bg-pink-400/80 backdrop-blur-sm border-2 border-white w-24 h-24 rounded-full text-4xl shadow-lg active:bg-pink-500 transition-colors text-white font-bold">JUMP</button>
+        <button id="btn-right" class="pointer-events-auto bg-white/50 backdrop-blur-sm border-2 border-white w-20 h-20 rounded-full text-3xl shadow-lg active:bg-white/80 transition-colors">➡️</button>
+    </div>
+
+    <!-- NETWORK & AUTH MODULE (Embedded) -->
+    <script>
+        // ========= CONFIG =========
+        // Automatically switch between local development and production API URLs
+        const API_BASE = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3000/api' 
+            : 'https://balloon-pop-online.onrender.com/api';
+        
+        const SOCKET_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://balloon-pop-online.onrender.com';
+
+        // ========= GAME NETWORK CLASS =========
+        class GameNetwork {
+            constructor() {
+                this.socket = null;
+                this.currentUser = null;
+                this.currentRoom = null;
+                this.isSaving = false;
+            }
+
+            // Load user from localStorage
+            loadUser() {
+                const saved = localStorage.getItem('bp_user');
+                if (saved) {
+                    this.currentUser = JSON.parse(saved);
+                    return true;
+                }
+                return false;
+            }
+
+            // Save user to localStorage
+            saveUser() {
+                if (this.currentUser) {
+                    localStorage.setItem('bp_user', JSON.stringify(this.currentUser));
+                }
+            }
+
+            // Register/Login user
+            async login(username) {
+                try {
+                    const res = await fetch(`${API_BASE}/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        this.currentUser = data.user;
+                        this.saveUser();
+                        return { success: true, user: data.user, message: data.message };
+                    }
+                    return { success: false, error: data.message };
+                } catch (err) {
+                    console.error('Login error:', err);
+                    return { success: false, error: 'Network error. Check your connection.' };
+                }
+            }
+
+            // Save game progress to server
+            async saveProgress(coinsEarned, balloonsPopped, levelReached, gameDuration) {
+                if (!this.currentUser || this.isSaving) return null;
+                this.isSaving = true;
+                
+                try {
+                    const res = await fetch(`${API_BASE}/user/${this.currentUser.username}/save-progress`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ coinsEarned, balloonsPopped, levelReached, gameDuration })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success && this.currentUser) {
+                        this.currentUser.coins = data.newCoins;
+                        this.currentUser.highscore = data.highscore;
+                        this.saveUser();
+                    }
+                    return data;
+                } catch (err) {
+                    console.error('Save progress error:', err);
+                    return null;
+                } finally {
+                    this.isSaving = false;
+                }
+            }
+
+            // Unlock skin
+            async unlockSkin(skinId, cost) {
+                if (!this.currentUser) return { success: false, error: 'Not logged in' };
+                
+                try {
+                    const res = await fetch(`${API_BASE}/user/${this.currentUser.username}/unlock-skin`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ skinId, cost })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success && this.currentUser) {
+                        this.currentUser.coins = data.newCoins;
+                        this.currentUser.unlockedSkins = data.unlockedSkins;
+                        this.saveUser();
+                    }
+                    return data;
+                } catch (err) {
+                    return { success: false, error: 'Network error' };
+                }
+            }
+
+            // Equip skin
+            async equipSkin(skinId) {
+                if (!this.currentUser) return { success: false, error: 'Not logged in' };
+                
+                try {
+                    const res = await fetch(`${API_BASE}/user/${this.currentUser.username}/equip-skin`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ skinId })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success && this.currentUser) {
+                        this.currentUser.equippedSkin = data.equippedSkin;
+                        this.saveUser();
+                    }
+                    return data;
+                } catch (err) {
+                    return { success: false, error: 'Network error' };
+                }
+            }
+
+            // Socket.io setup
+            connect() {
+                this.socket = io(SOCKET_URL, { transports: ['websocket'], autoConnect: false });
+                
+                this.socket.on('connect', () => {
+                    console.log('✅ Connected to game server');
+                });
+                
+                this.socket.on('roomJoined', (data) => {
+                    console.log('🎮 Room joined:', data.roomId);
+                    if (window.showRoomUI) window.showRoomUI(data.roomId, data.players);
+                });
+                
+                this.socket.on('playerJoined', (data) => {
+                    console.log('👋 Player joined:', data.username);
+                    if (window.showChatMessage) window.showChatMessage(data.username, data.message);
+                });
+                
+                this.socket.on('playerLeft', (data) => {
+                    console.log('👋 Player left:', data.username);
+                    if (window.showChatMessage) window.showChatMessage(data.username, data.message);
+                });
+                
+                this.socket.on('actionReceived', (data) => {
+                    // Handle other players' actions (visual effects only)
+                    if (window.handleOtherPlayerAction) {
+                        window.handleOtherPlayerAction(data.username, data.action, data.data);
+                    }
+                });
+                
+                this.socket.on('playerStateUpdate', (data) => {
+                    // Sync other players' positions (lightweight)
+                    if (window.updateOtherPlayer) {
+                        window.updateOtherPlayer(data.username, data.state);
+                    }
+                });
+                
+                this.socket.on('chatMessage', (data) => {
+                    if (window.showChatMessage) {
+                        window.showChatMessage(data.username, data.message);
+                    }
+                });
+                
+                this.socket.on('error', (err) => {
+                    console.error('❌ Socket error:', err.message);
+                });
+                
+                this.socket.on('disconnect', () => {
+                    console.log('❌ Disconnected from server');
+                });
+                
+                return this.socket;
+            }
+
+            joinRoom(roomId) {
+                if (!this.socket || !this.currentUser) return;
+                this.currentRoom = roomId;
+                this.socket.emit('joinRoom', {
+                    roomId,
+                    username: this.currentUser.username
+                });
+            }
+
+            sendAction(action, data = {}) {
+                if (!this.socket || !this.currentRoom) return;
+                this.socket.emit('playerAction', { action, data });
+            }
+
+            sendState(state) {
+                if (!this.socket || !this.currentRoom) return;
+                // Throttle: send state max 5 times per second
+                if (!this.lastStateSend || Date.now() - this.lastStateSend > 200) {
+                    this.socket.emit('playerStateUpdate', { state });
+                    this.lastStateSend = Date.now();
+                }
+            }
+
+            sendChat(message) {
+                if (!this.socket || !this.currentRoom || !message.trim()) return;
+                this.socket.emit('chatMessage', { message: message.trim() });
+            }
+
+            leaveRoom() {
+                if (this.socket && this.currentRoom) {
+                    this.socket.emit('leaveRoom');
+                    this.currentRoom = null;
+                }
+            }
+
+            disconnect() {
+                this.leaveRoom();
+                if (this.socket) {
+                    this.socket.disconnect();
+                    this.socket = null;
+                }
+            }
+
+            // Show notification
+            showNotification(message, type = 'info') {
+                const colors = {
+                    info: '#3b82f6',
+                    success: '#22c55e',
+                    error: '#ef4444',
+                    warning: '#f59e0b'
+                };
+                
+                const notif = document.createElement('div');
+                notif.textContent = message;
+                notif.style.cssText = `
+                    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+                    background: ${colors[type]}; color: white; padding: 12px 24px;
+                    border-radius: 20px; font-family: 'Nunito', sans-serif; font-weight: bold;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;
+                    animation: slideDown 0.3s ease;
+                `;
+                document.body.appendChild(notif);
+                
+                setTimeout(() => {
+                    notif.style.opacity = '0';
+                    notif.style.transition = 'opacity 0.3s';
+                    setTimeout(() => notif.remove(), 300);
+                }, 3000);
+            }
+        }
+
+        // Global instance
+        window.gameNetwork = new GameNetwork();
+    </script>
+
+    <!-- YOUR ORIGINAL GAME SCRIPT (MODIFIED FOR SERVER SYNC) -->
+    <script>
+        // --- GAME CONSTANTS & STATE ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let GAME_STATE = 'menu';
+        let score = 0;
+        let highscore = localStorage.getItem('balloonHighScore') || 0;
+        let coins = parseInt(localStorage.getItem('balloonCoins') || '0');
+        let currentLevel = 1;
+        
+        // Level Progress Tracking
+        let totalBalloonsInLevel = 0;
+        let balloonsPoppedInLevel = 0;
+        let levelTargetY = 0;
+        let requiredPopPercentage = 0.7;
+        let gameStartTime = 0;
+        
+        // Physics & World constants
+        let GRAVITY = 0; 
+        let JUMP_FORCE = 0;
+        let HIGH_JUMP_FORCE = 0;
+        let BASE_BOUNCE = 0;
+        let MOVEMENT_SPEED = 0;
+        
+        let cameraY = 0;
+        let highestY = 0;
+        
+        // Tower properties
+        let towerLeft = 0;
+        let towerRight = 0;
+        let towerWidth = 0;
+
+        // Input
+        let keys = { left: false, right: false, jump: false };
+        let canDoubleJump = false;
+        
+        // Arrays for game objects
+        let platforms = [];
+        let balloons = [];
+        let spikes = [];
+        let collectables = [];
+        let particles = [];
+        let floatTexts = [];
+        let clouds = [];
+        let trails = [];
+        let lasers = [];
+        
+        // Multiplayer: Other players
+        let otherPlayers = {};
+
+        // Player Data
+        let player = {
+            x: 0, y: 0, vy: 0, vx: 0, radius: 20, skin: 'default', grounded: false
+        };
+
+        // Shop configuration
+        const skins = [
+            { id: 'default', name: 'Pink Blob', price: 0, color: '#ec4899', emoji: '😊' },
+            { id: 'ninja', name: 'Ninja', price: 50, color: '#1f2937', emoji: '🥷' },
+            { id: 'king', name: 'King', price: 150, color: '#fbbf24', emoji: '👑' },
+            { id: 'ghost', name: 'Ghost', price: 300, color: '#f3f4f6', emoji: '👻' }
+        ];
+        let unlockedSkins = JSON.parse(localStorage.getItem('balloonSkins') || '["default"]');
+
+        const AudioEngine = {
+            initialized: false, popSynth: null, coinSynth: null, bombSynth: null,
+            jumpSynth: null, laserSynth: null, tickSynth: null,
+
+            async init() {
+                if (this.initialized) return;
+                await Tone.start();
+                
+                this.popSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination();
+                this.popSynth.volume.value = -5;
+                this.coinSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 } }).toDestination();
+                this.coinSynth.volume.value = -10;
+                this.bombSynth = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 4, oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 } }).toDestination();
+                this.bombSynth.volume.value = 0;
+                this.jumpSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination();
+                this.jumpSynth.volume.value = -15;
+                this.laserSynth = new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 0.5 } }).toDestination();
+                this.laserSynth.volume.value = -10;
+                this.tickSynth = new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 1, oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination();
+                this.tickSynth.volume.value = -5;
+                this.initialized = true;
+            },
+            playPop(pitch = 'C5') { if (this.initialized) this.popSynth.triggerAttackRelease(pitch, '8n'); },
+            playCoin() { if (this.initialized) this.coinSynth.triggerAttackRelease(['E5', 'B5'], '16n'); },
+            playBomb() { if (this.initialized) this.bombSynth.triggerAttackRelease('C1', '2n'); },
+            playJump(high = false) { if (this.initialized) this.jumpSynth.triggerAttackRelease(high ? '8n' : '16n'); },
+            playLaser() { if (this.initialized) this.laserSynth.triggerAttackRelease('A2', '2n'); },
+            playTick() { if (this.initialized) this.tickSynth.triggerAttackRelease('C4', '32n'); }
+        };
+
+        // ========= UTILITY FUNCTIONS =========
+        function spawnParticles(x, y, color, count, speedMultiplier = 1) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = (Math.random() * 5 + 2) * speedMultiplier;
+                particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, radius: Math.random() * 6 + 2, color, alpha: 1, decay: Math.random() * 0.02 + 0.015 });
+            }
+        }
+        function spawnFloatingText(x, y, text, color) { floatTexts.push({ x, y, text, color, alpha: 1, vy: -2 }); }
+        function vibrate(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
+        function flashScreen() { const o = document.getElementById('flash-overlay'); o.classList.remove('flash-red-active'); void o.offsetWidth; o.classList.add('flash-red-active'); }
+        function shakeScreen() { document.body.classList.remove('shaking'); void document.body.offsetWidth; document.body.classList.add('shaking'); }
+        function getSkinColor() { const s = skins.find(sk => sk.id === player.skin); return s ? s.color : '#ec4899'; }
+        function getSkinEmoji() { const s = skins.find(sk => sk.id === player.skin); return s ? s.emoji : '😊'; }
+
+        // ========= RESIZE & UI =========
+        function resize() {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            player.radius = Math.max(12, canvas.width * 0.025);
+            GRAVITY = canvas.height * 0.001; JUMP_FORCE = canvas.height * 0.018;
+            HIGH_JUMP_FORCE = canvas.height * 0.025; BASE_BOUNCE = canvas.height * 0.022;
+            MOVEMENT_SPEED = canvas.width * 0.008;
+            towerWidth = Math.min(600, canvas.width * 0.9);
+            towerLeft = (canvas.width - towerWidth) / 2; towerRight = towerLeft + towerWidth;
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.getElementById('touch-controls').classList.remove('hidden');
+            }
+        }
+        window.addEventListener('resize', resize); resize();
+
+        function updateUI() {
+            document.getElementById('coin-display').innerText = coins;
+            document.getElementById('shop-coin-display').innerText = coins;
+            let progress = Math.min(100, Math.floor((balloonsPoppedInLevel / (totalBalloonsInLevel * requiredPopPercentage)) * 100)) || 0;
+            document.getElementById('score-display').innerText = `${progress}% Target`;
+            document.getElementById('highscore-display').innerText = `${currentLevel}`;
+        }
+
+        // ========= LEVEL GENERATION (UNCHANGED) =========
+        function generateClouds() {
+            if(clouds.length > 5) return;
+            clouds.push({ x: Math.random() * canvas.width, y: cameraY + canvas.height + Math.random() * canvas.height, radius: Math.random() * 40 + 30, speed: Math.random() * 0.5 + 0.1, opacity: Math.random() * 0.3 + 0.1 });
+        }
+
+        function generateLevel(levelNum) {
+            platforms = []; balloons = []; spikes = []; collectables = []; lasers = []; trails = [];
+            totalBalloonsInLevel = 0; balloonsPoppedInLevel = 0;
+            const startY = canvas.height - 100;
+            const levelHeight = canvas.height * (3 + levelNum * 0.5);
+            levelTargetY = startY - levelHeight;
+            let currentY = startY;
+            
+            platforms.push({ x: canvas.width / 2, y: currentY, width: towerWidth * 0.8, height: 20, timer: -1, maxTimer: -1, hasBomb: false });
+            currentY -= 150; 
+
+            while (currentY > levelTargetY) {
+                let pWidth = Math.max(80, (Math.random() * 0.3 + 0.2) * towerWidth);
+                let pX = Math.random() > 0.5 ? towerLeft + pWidth/2 + Math.random() * (towerWidth/2 - pWidth) : towerRight - pWidth/2 - Math.random() * (towerWidth/2 - pWidth);
+                let pTime = Math.max(2, 5 - (levelNum * 0.2)) * 60; 
+                platforms.push({ x: pX, y: currentY, width: pWidth, height: 15, timer: pTime, maxTimer: pTime, hasBomb: true });
+
+                let itemsToSpawn = Math.floor(Math.random() * 3) + 1;
+                let spacing = pWidth / (itemsToSpawn + 1);
+                for(let i = 1; i <= itemsToSpawn; i++) {
+                    let itemX = (pX - pWidth/2) + (spacing * i);
+                    let itemY = currentY - player.radius * 2; 
+                    const rand = Math.random();
+                    let radius = canvas.width * 0.03;
+                    const spikeChance = Math.min(0.2, levelNum * 0.02);
+                    const bombChance = 0.05;
+                    const goldChance = 0.1;
+
+                    if (rand < spikeChance) spikes.push({ x: itemX, y: itemY, size: radius * 1.2, rot: 0 });
+                    else if (rand < spikeChance + bombChance) { balloons.push({ x: itemX, y: itemY, radius, type: 'bomb', popped: false }); totalBalloonsInLevel++; }
+                    else if (rand < spikeChance + bombChance + goldChance) { balloons.push({ x: itemX, y: itemY, radius, type: 'gold', popped: false }); totalBalloonsInLevel++; }
+                    else { balloons.push({ x: itemX, y: itemY, radius, type: 'regular', popped: false, color: ['#ef4444', '#3b82f6', '#10b981', '#a855f7'][Math.floor(Math.random()*4)] }); totalBalloonsInLevel++; }
+                    if (Math.random() < 0.3) collectables.push({ x: itemX, y: itemY - 60, radius: radius * 0.6, collected: false });
+                }
+                currentY -= (Math.random() * 100 + 120);
+                if (Math.random() < (0.1 + levelNum * 0.05)) {
+                    lasers.push({ y: currentY + 50, side: Math.random() > 0.5 ? 'left' : 'right', state: 'idle', timer: 0, thickness: 10 });
+                }
+            }
+            platforms.push({ x: canvas.width / 2, y: levelTargetY, width: towerWidth * 0.8, height: 20, timer: -1, maxTimer: -1, hasBomb: false, isEndGoal: true });
+            for(let i=0; i<5; i++) balloons.push({ x: canvas.width/2 - 100 + (i*50), y: levelTargetY - 40, radius: 25, type: 'regular', popped: false, color: '#f472b6' });
+            highestY = levelTargetY; updateUI();
+        }
+
+        // ========= GAME START (MODIFIED FOR SERVER) =========
+        function startGame(level = 1) {
+            AudioEngine.init();
+            currentLevel = level; GAME_STATE = 'playing';
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('level-complete-screen').classList.add('hidden');
+            document.getElementById('shop-screen').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+
+            // Load user data from server if available
+            if (window.gameNetwork.currentUser) {
+                coins = window.gameNetwork.currentUser.coins;
+                unlockedSkins = window.gameNetwork.currentUser.unlockedSkins;
+                player.skin = window.gameNetwork.currentUser.equippedSkin;
+                if (window.gameNetwork.currentUser.highscore > highscore) {
+                    highscore = window.gameNetwork.currentUser.highscore;
+                }
+            }
+            
+            score = 0; cameraY = 0; gameStartTime = Date.now();
+            generateLevel(currentLevel);
+            let startPlat = platforms[0];
+            player.x = startPlat.x; player.y = startPlat.y - 50;
+            player.vy = 0; player.vx = 0; player.grounded = false; canDoubleJump = false;
+            cameraY = player.y - canvas.height * 0.6; 
+            particles = []; floatTexts = []; clouds = []; generateClouds();
+            updateUI();
+            
+            // Connect to multiplayer if in room
+            if (window.gameNetwork.currentRoom && window.gameNetwork.socket?.connected) {
+                // Start sending player state updates
+                window.sendPlayerState = true;
+            }
+        }
+
+        // ========= LEVEL COMPLETE (MODIFIED) =========
+        function completeLevel() {
+            if (GAME_STATE === 'levelcomplete') return;
+            GAME_STATE = 'levelcomplete';
+            let targetAmount = Math.ceil(totalBalloonsInLevel * requiredPopPercentage);
+            
+            if(balloonsPoppedInLevel >= targetAmount) {
+                if (currentLevel > highscore) {
+                    highscore = currentLevel;
+                    localStorage.setItem('balloonHighScore', highscore);
+                }
+                let bonus = Math.floor(balloonsPoppedInLevel - targetAmount) * 2; 
+                coins += bonus;
+                localStorage.setItem('balloonCoins', coins);
+                
+                // Save to server
+                if (window.gameNetwork.currentUser) {
+                    const duration = Math.floor((Date.now() - gameStartTime) / 1000);
+                    window.gameNetwork.saveProgress(bonus, balloonsPoppedInLevel, currentLevel, duration);
+                }
+                
+                vibrate([50, 100, 50, 100, 50]);                 
+                document.getElementById('hud').classList.add('hidden');
+                document.getElementById('level-complete-screen').classList.remove('hidden');
+                document.getElementById('level-popped').innerText = balloonsPoppedInLevel;
+                document.getElementById('level-total').innerText = totalBalloonsInLevel;
+                document.getElementById('level-bonus-coins').innerText = bonus;
+                AudioEngine.playCoin();
+                spawnParticles(player.x, canvas.height - (player.y - cameraY), '#4ade80', 50, 2);
+                
+                // Show rewarded ad button
+                document.getElementById('watch-ad-btn').classList.remove('hidden');
+            } else {
+                gameOver("Not enough balloons popped! Target: " + Math.floor(requiredPopPercentage*100) + "%");
+            }
+        }
+
+        // ========= GAME OVER (MODIFIED) =========
+        function gameOver(reasonText = "") {
+            if (GAME_STATE === 'gameover') return;
+            GAME_STATE = 'gameover';
+            localStorage.setItem('balloonCoins', coins);
+            if (currentLevel > highscore) { highscore = currentLevel; localStorage.setItem('balloonHighScore', highscore); }
+
+            // Save progress to server
+            if (window.gameNetwork.currentUser) {
+                const coinsEarned = Math.floor(balloonsPoppedInLevel * 0.5);
+                const duration = Math.floor((Date.now() - gameStartTime) / 1000);
+                window.gameNetwork.saveProgress(coinsEarned, balloonsPoppedInLevel, currentLevel, duration);
+            }
+
+            vibrate([100, 50, 200, 50, 300]); flashScreen();
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.remove('hidden');
+            let reasonEl = document.getElementById('gameover-reason');
+            if(reasonText) {
+                reasonEl.innerText = reasonText; reasonEl.classList.remove('hidden');
+                document.getElementById('gameover-title').innerText = "FAILED!";
+            } else {
+                reasonEl.classList.add('hidden'); document.getElementById('gameover-title').innerText = "POP!";
+            }
+            shakeScreen();
+            spawnParticles(player.x, canvas.height - (player.y - cameraY), getSkinColor(), 50, 2);
+            AudioEngine.playBomb();
+            
+            // Show revive ad button
+            document.getElementById('revive-ad-btn').classList.remove('hidden');
+        }
+
+        // ========= PLAYER JUMP (UNCHANGED) =========
+        function playerJump() {
+            if(player.grounded) {
+                player.vy = JUMP_FORCE; player.grounded = false; canDoubleJump = true;
+                AudioEngine.playJump(false); vibrate(15);
+                spawnParticles(player.x, canvas.height - (player.y - cameraY) + player.radius, '#ffffff', 5, 0.5);
+                // Send action to other players
+                if (window.gameNetwork.currentRoom) {
+                    window.gameNetwork.sendAction('jumped', { x: player.x, y: player.y });
+                }
+            } else if(canDoubleJump) {
+                player.vy = HIGH_JUMP_FORCE; canDoubleJump = false;
+                AudioEngine.playJump(true); vibrate(25);
+                spawnParticles(player.x, canvas.height - (player.y - cameraY) + player.radius, getSkinColor(), 10, 1);
+                if (window.gameNetwork.currentRoom) {
+                    window.gameNetwork.sendAction('doubleJumped', { x: player.x, y: player.y });
+                }
+            }
+        }
+
+        // ========= UPDATE LOOP (MULTIPLAYER SYNC ADDED) =========
+        function update() {
+            if (GAME_STATE !== 'playing') return;
+
+            // Send player state to server (for multiplayer sync)
+            if (window.sendPlayerState && window.gameNetwork.currentRoom) {
+                window.gameNetwork.sendState({ x: player.x, y: player.y, skin: player.skin });
+            }
+
+            if (Math.abs(player.vx) > 1 || Math.abs(player.vy) > 2) {
+                trails.push({ x: player.x, y: player.y, skin: player.skin, alpha: 0.4, scale: 1 });
+            }
+
+            if (keys.left) player.vx -= 1;
+            else if (keys.right) player.vx += 1;
+            else player.vx *= 0.8;
+            if(player.vx > MOVEMENT_SPEED) player.vx = MOVEMENT_SPEED;
+            if(player.vx < -MOVEMENT_SPEED) player.vx = -MOVEMENT_SPEED;
+            player.x += player.vx;
+
+            if (player.x < towerLeft + player.radius) { player.x = towerLeft + player.radius; player.vx = 0; }
+            if (player.x > towerRight - player.radius) { player.x = towerRight - player.radius; player.vx = 0; }
+
+            player.vy -= GRAVITY; player.y -= player.vy; player.grounded = false;
+
+            // Platform Collision (UNCHANGED)
+            for(let i = 0; i < platforms.length; i++) {
+                let p = platforms[i]; let isStanding = false;
+                if (player.vy < 0) {
+                    if (player.x + player.radius > p.x - p.width/2 && player.x - player.radius < p.x + p.width/2 &&
+                        player.y + player.radius > p.y - p.height/2 && player.y + player.radius < p.y + p.height/2 + Math.abs(player.vy)) { 
+                        player.y = p.y - p.height/2 - player.radius; player.vy = 0; player.grounded = true; canDoubleJump = false; isStanding = true;
+                        if(p.isEndGoal) { completeLevel(); return; }
+                    }
+                }
+                if(p.hasBomb && isStanding) {
+                    p.timer--;
+                    if(p.timer % 30 === 0 && p.timer > 0) AudioEngine.playTick();
+                    if(p.timer <= 0) {
+                        AudioEngine.playBomb(); shakeScreen(); flashScreen();
+                        spawnParticles(p.x, canvas.height - (p.y - cameraY), '#ef4444', 100, 3);
+                        gameOver("Platform Bomb Exploded!"); return;
+                    }
+                }
+            }
+
+            let targetCamY = player.y + canvas.height * 0.2; cameraY += (targetCamY - cameraY) * 0.1;
+            if (player.y > cameraY + canvas.height * 0.6) { gameOver("You fell!"); return; }
+            if(Math.random() < 0.01) generateClouds();
+
+            // Lasers (UNCHANGED)
+            for (let i = 0; i < lasers.length; i++) {
+                let l = lasers[i]; let distY = Math.abs(player.y - l.y);
+                if (distY < canvas.height * 0.8) {
+                    if (l.state === 'idle' && distY < canvas.height * 0.3) { l.state = 'warning'; l.timer = 60; }
+                    else if (l.state === 'warning') { l.timer--; if (l.timer <= 0) { l.state = 'firing'; l.timer = 300; AudioEngine.playLaser(); vibrate([30,30,30]); } }
+                    else if (l.state === 'firing') {
+                        l.timer--;
+                        if (distY < player.radius + l.thickness/2 && player.x > towerLeft && player.x < towerRight) { gameOver("Zapped by Laser!"); return; }
+                        if (l.timer <= 0) { l.state = 'cooldown'; l.timer = 300; }
+                    } else if (l.state === 'cooldown') { l.timer--; if (l.timer <= 0) l.state = 'idle'; }
+                }
+            }
+
+            // Balloons (UNCHANGED + Multiplayer Action)
+            for (let i = balloons.length - 1; i >= 0; i--) {
+                let b = balloons[i]; if (b.popped) continue;
+                if (b.y > cameraY + canvas.height) continue;
+                let dx = player.x - b.x; let dy = player.y - b.y; let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < player.radius + b.radius) {
+                    b.popped = true; balloonsPoppedInLevel++;
+                    let screenBY = b.y - cameraY + canvas.height/2;
+                    if (b.type === 'regular') {
+                        player.vy = BASE_BOUNCE * 0.8; player.grounded = false; canDoubleJump = true;
+                        spawnParticles(b.x, screenBY, b.color, 15); spawnFloatingText(b.x, screenBY, "+1", b.color);
+                        score += 1; AudioEngine.playPop('E5'); vibrate(15);
+                        if (window.gameNetwork.currentRoom) window.gameNetwork.sendAction('popped', { type: 'regular', x: b.x, y: b.y });
+                    } else if (b.type === 'gold') {
+                        player.vy = BASE_BOUNCE * 1.5; player.grounded = false; canDoubleJump = true;
+                        spawnParticles(b.x, screenBY, '#fbbf24', 30, 1.5); spawnFloatingText(b.x, screenBY, "+5", '#fbbf24');
+                        score += 5; AudioEngine.playPop('G5'); vibrate([20,50,20]);
+                        if (window.gameNetwork.currentRoom) window.gameNetwork.sendAction('popped', { type: 'gold', x: b.x, y: b.y });
+                    } else if (b.type === 'bomb') {
+                        player.vy = BASE_BOUNCE * 1.2; player.grounded = false; canDoubleJump = true;
+                        spawnParticles(b.x, screenBY, '#1f2937', 40, 2); spawnFloatingText(b.x, screenBY, "BOOM!", '#ef4444');
+                        AudioEngine.playBomb(); shakeScreen(); flashScreen(); vibrate(100);
+                        for(let j = spikes.length -1; j >= 0; j--) {
+                            let sx = spikes[j].x; let sy = spikes[j].y;
+                            let sdist = Math.sqrt((b.x - sx)**2 + (b.y - sy)**2);
+                            if(sdist < canvas.width * 0.3) { let screenSY = sy - cameraY + canvas.height/2; spawnParticles(sx, screenSY, '#9ca3af', 10); spikes.splice(j, 1); }
+                        }
+                        if (window.gameNetwork.currentRoom) window.gameNetwork.sendAction('popped', { type: 'bomb', x: b.x, y: b.y });
+                    }
+                    updateUI();
+                }
+            }
+
+            // Spikes (UNCHANGED)
+            for (let i = spikes.length - 1; i >= 0; i--) {
+                let s = spikes[i];
+                if (s.y > cameraY + canvas.height) { spikes.splice(i, 1); continue; }
+                let dx = player.x - s.x; let dy = player.y - s.y; let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < player.radius + s.size * 0.6) { gameOver("Hit a spike!"); return; }
+            }
+
+            // Coins (UNCHANGED)
+            for (let i = collectables.length - 1; i >= 0; i--) {
+                let c = collectables[i]; if (c.collected) continue;
+                if (c.y > cameraY + canvas.height) { collectables.splice(i, 1); continue; }
+                let dx = player.x - c.x; let dy = player.y - c.y; let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < player.radius + c.radius) {
+                    c.collected = true; coins++; updateUI(); AudioEngine.playCoin(); vibrate(10);
+                    let screenCY = c.y - cameraY + canvas.height/2;
+                    spawnFloatingText(c.x, screenCY, "+1🪙", "#eab308"); spawnParticles(c.x, screenCY, '#eab308', 5);
+                    if (window.gameNetwork.currentRoom) window.gameNetwork.sendAction('collectedCoin', { x: c.x, y: c.y });
+                }
+            }
+
+            // Trails, Particles, FloatTexts, Clouds (UNCHANGED)
+            for (let i = trails.length - 1; i >= 0; i--) { trails[i].alpha -= 0.05; trails[i].scale *= 0.95; if (trails[i].alpha <= 0) trails.splice(i, 1); }
+            for (let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.alpha -= p.decay; p.radius *= 0.95; if (p.alpha <= 0 || p.radius < 0.5) particles.splice(i, 1); }
+            for (let i = floatTexts.length - 1; i >= 0; i--) { let f = floatTexts[i]; f.y += f.vy; f.alpha -= 0.02; if (f.alpha <= 0) floatTexts.splice(i, 1); }
+            for(let i = clouds.length -1; i >= 0; i--) { let c = clouds[i]; c.x += c.speed; if(c.x > canvas.width + c.radius) c.x = -c.radius; let screenCY = c.y - cameraY + canvas.height/2; if(screenCY > canvas.height * 1.5 || screenCY < -canvas.height) clouds.splice(i, 1); }
+        }
+
+        // ========= DRAW LOOP (MULTIPLAYER: DRAW OTHER PLAYERS) =========
+        function draw() {
+            function toScreenY(worldY) { return worldY - cameraY + canvas.height / 2; }
+            let gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            let skyProg = Math.max(0, Math.min(1, Math.abs(cameraY) / (canvas.height*10)));
+            gradient.addColorStop(0, `rgb(${135 - skyProg*100}, ${206 - skyProg*150}, ${235 - skyProg*50})`); 
+            gradient.addColorStop(1, `rgb(${224 - skyProg*100}, ${246 - skyProg*150}, ${255 - skyProg*50})`); 
+            ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; ctx.fillRect(towerLeft-20, 0, 20, canvas.height); ctx.fillRect(towerRight, 0, 20, canvas.height);
+            ctx.fillStyle = '#64748b'; ctx.fillRect(towerLeft-15, 0, 15, canvas.height); ctx.fillRect(towerRight, 0, 15, canvas.height);
+            
+            // Lasers (UNCHANGED)
+            lasers.forEach(l => {
+                let screenLY = toScreenY(l.y); if(screenLY < -100 || screenLY > canvas.height + 100) return;
+                let startX = l.side === 'left' ? towerLeft : towerRight;
+                ctx.fillStyle = '#374151'; ctx.fillRect(startX - (l.side==='left'?0:15), screenLY - 10, 15, 20);
+                if (l.state === 'warning') {
+                    ctx.beginPath(); ctx.moveTo(startX, screenLY); ctx.lineTo(l.side === 'left' ? towerRight : towerLeft, screenLY);
+                    ctx.strokeStyle = `rgba(239, 68, 68, ${Math.abs(Math.sin(Date.now()/100))})`; ctx.lineWidth = 2; ctx.stroke();
+                } else if (l.state === 'firing') {
+                    ctx.beginPath(); ctx.moveTo(startX, screenLY); ctx.lineTo(l.side === 'left' ? towerRight : towerLeft, screenLY);
+                    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = l.thickness + Math.random() * 4; ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(startX, screenLY); ctx.lineTo(l.side === 'left' ? towerRight : towerLeft, screenLY);
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = l.thickness * 0.4; ctx.stroke();
+                }
+            });
+
+            // Clouds (UNCHANGED)
+            ctx.fillStyle = "#ffffff"; clouds.forEach(c => {
+                let screenCY = toScreenY(c.y) * 0.5; ctx.globalAlpha = c.opacity;
+                ctx.beginPath(); ctx.arc(c.x, screenCY, c.radius, 0, Math.PI*2);
+                ctx.arc(c.x - c.radius*0.5, screenCY + c.radius*0.2, c.radius*0.8, 0, Math.PI*2);
+                ctx.arc(c.x + c.radius*0.5, screenCY + c.radius*0.2, c.radius*0.8, 0, Math.PI*2); ctx.fill();
+            }); ctx.globalAlpha = 1;
+
+            if (GAME_STATE !== 'playing' && GAME_STATE !== 'gameover') return;
+
+            // Platforms (UNCHANGED)
+            platforms.forEach(p => {
+                let screenPY = toScreenY(p.y); if(screenPY < -100 || screenPY > canvas.height + 100) return;
+                ctx.save(); ctx.translate(p.x, screenPY);
+                ctx.fillStyle = p.isEndGoal ? '#4ade80' : '#94a3b8'; 
+                if(!p.isEndGoal && p.timer > 0 && p.timer < 60 && p.hasBomb) { if(Math.floor(Date.now() / 100) % 2 === 0) ctx.fillStyle = '#ef4444'; }
+                let crumbleOffset = 0; ctx.fillRect(-p.width/2, -p.height/2 + crumbleOffset, p.width, p.height);
+                ctx.strokeStyle = '#475569'; ctx.lineWidth = 2; ctx.strokeRect(-p.width/2, -p.height/2 + crumbleOffset, p.width, p.height);
+                if(p.hasBomb && !p.isEndGoal) {
+                    let pct = p.timer / p.maxTimer; ctx.fillStyle = '#1f2937'; ctx.fillRect(-10, -p.height/2 - 10, 20, 10);
+                    let blinkSpeed = pct > 0.5 ? 500 : pct > 0.2 ? 200 : 50; let isBlinking = (Date.now() % blinkSpeed) < blinkSpeed/2;
+                    ctx.fillStyle = isBlinking ? '#ef4444' : '#7f1d1d'; ctx.beginPath(); ctx.arc(0, -p.height/2 - 5, 4, 0, Math.PI*2); ctx.fill();
+                    if (pct < 0.3) { ctx.strokeStyle = `rgba(239, 68, 68, ${1 - pct})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -p.height/2 - 5, 10 + Math.random()*5, 0, Math.PI*2); ctx.stroke(); }
+                } else if (p.maxTimer > 0) { let pct = p.timer / p.maxTimer; ctx.fillStyle = pct > 0.5 ? '#22c55e' : pct > 0.2 ? '#eab308' : '#ef4444'; ctx.fillRect(-p.width/2, p.height/2 + 2, p.width * pct, 4); }
+                ctx.restore();
+            });
+
+            // Spikes, Balloons, Collectables (UNCHANGED)
+            spikes.forEach(s => { let screenSY = toScreenY(s.y); if(screenSY < -100 || screenSY > canvas.height + 100) return; ctx.save(); ctx.translate(s.x, screenSY); ctx.rotate(s.rot); ctx.beginPath(); ctx.moveTo(0, -s.size); ctx.lineTo(s.size*0.8, s.size*0.8); ctx.lineTo(-s.size*0.8, s.size*0.8); ctx.closePath(); ctx.fillStyle = '#6b7280'; ctx.fill(); ctx.strokeStyle = '#374151'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -s.size); ctx.lineTo(0, s.size*0.8); ctx.strokeStyle = '#9ca3af'; ctx.stroke(); ctx.restore(); });
+            balloons.forEach(b => { if (b.popped) return; let screenBY = toScreenY(b.y); if(screenBY < -100 || screenBY > canvas.height + 100) return; ctx.save(); ctx.translate(b.x, screenBY); let floatOffset = Math.sin((Date.now() / 500) + b.x) * 3; ctx.translate(0, floatOffset); ctx.arc(0, 0, b.radius, 0, Math.PI * 2); if (b.type === 'regular') ctx.fillStyle = b.color; else if (b.type === 'gold') { let grad = ctx.createRadialGradient(-b.radius*0.3, -b.radius*0.3, b.radius*0.1, 0, 0, b.radius); grad.addColorStop(0, '#fef08a'); grad.addColorStop(1, '#ca8a04'); ctx.fillStyle = grad; } else if (b.type === 'bomb') ctx.fillStyle = '#1f2937'; ctx.fill(); ctx.beginPath(); ctx.moveTo(-b.radius*0.2, b.radius); ctx.lineTo(b.radius*0.2, b.radius); ctx.lineTo(0, b.radius*1.2); ctx.closePath(); ctx.fill(); if(b.type !== 'bomb') { ctx.beginPath(); ctx.arc(-b.radius*0.3, -b.radius*0.3, b.radius*0.2, 0, Math.PI*2); ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; ctx.fill(); } else { ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(0, 0, b.radius*0.4, 0, Math.PI*2); ctx.fill(); } ctx.restore(); });
+            collectables.forEach(c => { if (c.collected) return; let screenCY = toScreenY(c.y); if(screenCY < -100 || screenCY > canvas.height + 100) return; ctx.save(); ctx.translate(c.x, screenCY); ctx.scale(Math.sin(Date.now() / 200), 1); ctx.fillStyle = '#eab308'; ctx.fill(); ctx.strokeStyle = '#ca8a04'; ctx.lineWidth = 3; ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, c.radius * 0.6, 0, Math.PI * 2); ctx.strokeStyle = '#fef08a'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore(); });
+
+            // Particles & Trails (UNCHANGED)
+            particles.forEach(p => { ctx.globalAlpha = p.alpha; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); }); ctx.globalAlpha = 1;
+            trails.forEach(t => { let screenTY = toScreenY(t.y); ctx.save(); ctx.translate(t.x, screenTY); ctx.scale(t.scale, t.scale); ctx.globalAlpha = t.alpha; ctx.beginPath(); ctx.arc(0, 0, player.radius, 0, Math.PI * 2); const skin = skins.find(s => s.id === t.skin); ctx.fillStyle = skin ? skin.color : '#ec4899'; ctx.fill(); ctx.restore(); }); ctx.globalAlpha = 1;
+
+            // MULTIPLAYER: Draw other players
+            Object.values(otherPlayers).forEach(op => {
+                let screenY = toScreenY(op.y);
+                if(screenY < -100 || screenY > canvas.height + 100) return;
+                ctx.save(); ctx.translate(op.x, screenY);
+                ctx.beginPath(); ctx.arc(0, 0, player.radius * 0.9, 0, Math.PI * 2);
+                const skin = skins.find(s => s.id === op.skin); ctx.fillStyle = skin ? skin.color : '#8b5cf6';
+                ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.font = `${player.radius * 0.8}px 'Nunito', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(skin ? skin.emoji : '🎈', 0, 0);
+                // Name tag
+                ctx.font = '12px Nunito'; ctx.fillStyle = '#333'; ctx.fillText(op.username, 0, -player.radius - 5);
+                ctx.restore();
+            });
+
+            // Main Player (UNCHANGED)
+            if (GAME_STATE === 'playing' || GAME_STATE === 'gameover') {
+                let screenPlayerY = toScreenY(player.y);
+                ctx.save(); ctx.translate(player.x, screenPlayerY); ctx.rotate(player.vx * 0.05);
+                ctx.beginPath(); ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+                ctx.fillStyle = getSkinColor(); ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
+                ctx.font = `${player.radius}px 'Nunito', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(getSkinEmoji(), 0, 0);
+                if(Math.abs(player.vy) > 2 && !player.grounded) { ctx.beginPath(); let stretch = Math.min(1.5, Math.abs(player.vy)*0.1); ctx.scale(1/stretch, stretch); }
+                ctx.restore();
+            }
+
+            // Floating Texts & UI (UNCHANGED)
+            floatTexts.forEach(f => { ctx.globalAlpha = f.alpha; ctx.font = "bold 20px 'Fredoka One', cursive"; ctx.fillStyle = f.color; ctx.textAlign = 'center'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; let screenFY = toScreenY(f.y); ctx.strokeText(f.text, f.x, screenFY); ctx.fillText(f.text, f.x, screenFY); }); ctx.globalAlpha = 1;
+            if (GAME_STATE === 'playing') { let targetAmount = Math.ceil(totalBalloonsInLevel * requiredPopPercentage); ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.font = "16px 'Nunito', sans-serif"; ctx.textAlign = 'left'; ctx.fillText(`Target: ${balloonsPoppedInLevel} / ${targetAmount}`, 10, 80); }
+        }
+
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
+
+        // ========= INPUT HANDLERS (UNCHANGED) =========
+        window.addEventListener('keydown', (e) => {
+            if(e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+            if(e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+            if(e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') { if(!keys.jump) playerJump(); keys.jump = true; }
+        });
+        window.addEventListener('keyup', (e) => {
+            if(e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+            if(e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+            if(e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') keys.jump = false;
+        });
+        const btnLeft = document.getElementById('btn-left'), btnRight = document.getElementById('btn-right'), btnJump = document.getElementById('btn-jump');
+        btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; });
+        btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
+        btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; });
+        btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
+        btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); if(!keys.jump) playerJump(); keys.jump = true; });
+        btnJump.addEventListener('touchend', (e) => { e.preventDefault(); keys.jump = false; });
+        canvas.addEventListener('mousedown', (e) => { playerJump(); });
+
+        // ========= SHOP (MODIFIED FOR SERVER) =========
+        function renderShop() {
+            const container = document.getElementById('shop-items-container'); container.innerHTML = '';
+            skins.forEach(skin => {
+                const isUnlocked = window.gameNetwork.currentUser ? window.gameNetwork.currentUser.unlockedSkins.includes(skin.id) : unlockedSkins.includes(skin.id);
+                const isSelected = player.skin === skin.id;
+                const div = document.createElement('div');
+                div.className = `shop-item bg-white p-4 rounded-2xl border-4 text-center cursor-pointer flex flex-col items-center gap-2 ${!isUnlocked ? 'locked border-gray-300' : isSelected ? 'selected border-green-400' : 'border-purple-200'}`;
+                let btnHtml = '';
+                if (isSelected) btnHtml = `<span class="text-green-500 font-bold">Equipped</span>`;
+                else if (isUnlocked) btnHtml = `<button class="bg-blue-400 text-white px-4 py-1 rounded-full font-bold text-sm w-full">Equip</button>`;
+                else btnHtml = `<button class="bg-yellow-400 text-yellow-900 px-4 py-1 rounded-full font-bold text-sm w-full flex justify-center items-center gap-1"><span>🪙</span> ${skin.price}</button>`;
+                div.innerHTML = `<div class="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-inner border-2 border-white" style="background-color: ${skin.color}">${skin.emoji}</div><div class="font-bold text-gray-700">${skin.name}</div><div class="mt-auto w-full">${btnHtml}</div>`;
+                div.onclick = async () => {
+                    if (isUnlocked) {
+                        // Equip via server
+                        const result = await window.gameNetwork.equipSkin(skin.id);
+                        if (result.success) { player.skin = skin.id; renderShop(); window.gameNetwork.showNotification(`🎨 ${skin.name} equipped!`, 'success'); }
+                        else window.gameNetwork.showNotification(result.error || 'Failed to equip', 'error');
+                    } else if (coins >= skin.price) {
+                        // Unlock via server
+                        const result = await window.gameNetwork.unlockSkin(skin.id, skin.price);
+                        if (result.success) {
+                            coins = result.newCoins; unlockedSkins = result.unlockedSkins; player.skin = skin.id;
+                            document.getElementById('shop-coin-display').innerText = coins; document.getElementById('coin-display').innerText = coins;
+                            renderShop(); window.gameNetwork.showNotification(result.message, 'success');
+                        } else {
+                            window.gameNetwork.showNotification(result.error || 'Failed to unlock', 'error');
+                            div.classList.add('shaking'); setTimeout(() => div.classList.remove('shaking'), 200);
+                        }
+                    } else {
+                        window.gameNetwork.showNotification('Not enough coins!', 'warning');
+                        div.classList.add('shaking'); setTimeout(() => div.classList.remove('shaking'), 200);
+                    }
+                };
+                container.appendChild(div);
+            });
+        }
+
+        // ========= MULTIPLAYER UI FUNCTIONS =========
+        window.showRoomUI = function(roomId, players) {
+            document.getElementById('multiplayer-panel').classList.add('visible');
+            document.getElementById('room-display').innerText = `Room: ${roomId}`;
+            // Show player count
+            const count = players?.length || 1;
+            window.gameNetwork.showNotification(`🎮 Room ${roomId} • ${count} player${count>1?'s':''}`, 'success');
+        };
+
+        window.showChatMessage = function(username, message) {
+            const chat = document.getElementById('chat-messages');
+            const msg = document.createElement('div');
+            msg.className = 'chat-message';
+            msg.innerHTML = `<strong>${username}:</strong> ${message}`;
+            chat.appendChild(msg);
+            chat.scrollTop = chat.scrollHeight;
+            // Auto-hide chat after 5 seconds of inactivity
+            if (window.chatTimeout) clearTimeout(window.chatTimeout);
+            document.getElementById('chat-panel').classList.add('visible');
+            window.chatTimeout = setTimeout(() => {
+                if (!document.getElementById('chat-input').matches(':focus')) {
+                    document.getElementById('chat-panel').classList.remove('visible');
+                }
+            }, 5000);
+        };
+
+        window.handleOtherPlayerAction = function(username, action, data) {
+            // Visual feedback for other players' actions
+            if (action === 'popped') {
+                spawnParticles(data.x, data.y, '#a855f7', 8, 0.8);
+                spawnFloatingText(data.x, data.y - 20, '🎈', '#a855f7');
+            }
+            if (action === 'jumped' || action === 'doubleJumped') {
+                spawnParticles(data.x, data.y + 20, '#ffffff', 3, 0.3);
+            }
+        };
+
+        window.updateOtherPlayer = function(username, state) {
+            // Smooth interpolation for other players
+            if (!otherPlayers[username]) {
+                otherPlayers[username] = { ...state, targetX: state.x, targetY: state.y };
+            } else {
+                otherPlayers[username].targetX = state.x;
+                otherPlayers[username].targetY = state.y;
+                otherPlayers[username].skin = state.skin;
+            }
+            // Interpolate position
+            const op = otherPlayers[username];
+            op.x += (op.targetX - op.x) * 0.1;
+            op.y += (op.targetY - op.y) * 0.1;
+        };
+
+        // ========= ADS FUNCTIONS =========
+        function showRewardedAd(onComplete) {
+            if (typeof GD_API !== 'undefined' && window.gdReady) {
+                GD_API.showAd({ type: 'rewarded' })
+                .then(() => { 
+                    console.log('🎁 Rewarded ad completed'); 
+                    if (onComplete) onComplete(true); 
+                })
+                .catch(err => { 
+                    console.log('Ad not shown:', err); 
+                    if (onComplete) onComplete(false); // Still allow fallback
+                });
+            } else {
+                // Fallback: grant reward anyway for testing
+                console.log('GD SDK not ready - granting reward anyway');
+                if (onComplete) onComplete(true);
+            }
+        }
+
+        function showInterstitialAd(onComplete) {
+            if (typeof GD_API !== 'undefined' && window.gdReady && Math.random() < 0.3) {
+                // Only show 30% of the time to avoid annoyance
+                GD_API.showAd({ type: 'interstitial' })
+                .then(() => { if (onComplete) onComplete(); })
+                .catch(() => { if (onComplete) onComplete(); });
+            } else {
+                if (onComplete) onComplete();
+            }
+        }
+
+        // ========= EVENT LISTENERS (MODIFIED) =========
+        document.getElementById('start-btn').addEventListener('click', () => {
+            // Ensure user is logged in
+            if (!window.gameNetwork.currentUser) {
+                document.getElementById('login-modal').classList.remove('hidden');
+                return;
+            }
+            startGame(1);
+        });
+        
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            document.getElementById('revive-ad-btn').classList.add('hidden');
+            startGame(currentLevel);
+        });
+        
+        document.getElementById('next-level-btn').addEventListener('click', () => {
+            document.getElementById('watch-ad-btn').classList.add('hidden');
+            // Show interstitial ad before next level (30% chance)
+            showInterstitialAd(() => {
+                startGame(currentLevel + 1);
+            });
+        });
+        
+        document.querySelectorAll('.menu-return-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                GAME_STATE = 'menu';
+                document.getElementById('gameover-screen').classList.add('hidden');
+                document.getElementById('level-complete-screen').classList.add('hidden');
+                document.getElementById('menu-screen').classList.remove('hidden');
+                document.getElementById('hud').classList.add('hidden');
+                document.getElementById('watch-ad-btn').classList.add('hidden');
+                document.getElementById('revive-ad-btn').classList.add('hidden');
+                // Leave multiplayer room if in one
+                if (window.gameNetwork.currentRoom) {
+                    window.gameNetwork.leaveRoom();
+                    document.getElementById('multiplayer-panel').classList.remove('visible');
+                    document.getElementById('chat-panel').classList.remove('visible');
+                }
+            });
+        });
+
+        document.getElementById('open-shop-btn').addEventListener('click', () => {
+            if (!window.gameNetwork.currentUser) {
+                document.getElementById('login-modal').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('shop-screen').classList.remove('hidden');
+            document.getElementById('shop-coin-display').innerText = window.gameNetwork.currentUser?.coins || coins;
+            renderShop();
+        });
+
+        document.getElementById('close-shop-btn').addEventListener('click', () => {
+            document.getElementById('shop-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.remove('hidden');
+        });
+
+        // Login functionality
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const username = document.getElementById('username-input').value.trim();
+            const errorEl = document.getElementById('login-error');
+            
+            if (!username || username.length < 3) {
+                errorEl.innerText = 'Username must be at least 3 characters';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (username.length > 20) {
+                errorEl.innerText = 'Username must be under 20 characters';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            errorEl.classList.add('hidden');
+            document.getElementById('login-btn').disabled = true;
+            document.getElementById('login-btn').innerText = 'Connecting...';
+            
+            const result = await window.gameNetwork.login(username);
+            
+            if (result.success) {
+                document.getElementById('login-modal').classList.add('hidden');
+                window.gameNetwork.showNotification(result.message || `Welcome, ${username}!`, 'success');
+                // Update UI with server data
+                coins = result.user.coins;
+                unlockedSkins = result.user.unlockedSkins;
+                player.skin = result.user.equippedSkin;
+                highscore = result.user.highscore;
+                updateUI();
+            } else {
+                errorEl.innerText = result.error;
+                errorEl.classList.remove('hidden');
+                document.getElementById('login-btn').disabled = false;
+                document.getElementById('login-btn').innerText = 'PLAY NOW 🎈';
+            }
+        });
+
+        // Multiplayer room
+        document.getElementById('multiplayer-btn').addEventListener('click', () => {
+            if (!window.gameNetwork.currentUser) {
+                document.getElementById('login-modal').classList.remove('hidden');
+                return;
+            }
+            
+            // Generate or use existing room ID
+            let roomId = localStorage.getItem('bp_last_room') || 'room_' + Math.random().toString(36).substr(2, 6);
+            localStorage.setItem('bp_last_room', roomId);
+            
+            // Connect socket if not already
+            if (!window.gameNetwork.socket) {
+                window.gameNetwork.connect();
+            }
+            if (!window.gameNetwork.socket.connected) {
+                window.gameNetwork.socket.connect();
+            }
+            
+            // Join room
+            window.gameNetwork.joinRoom(roomId);
+            
+            // Show chat
+            document.getElementById('chat-panel').classList.add('visible');
+            
+            // Hide menu, start game
+            document.getElementById('menu-screen').classList.add('hidden');
+            startGame(1);
+            
+            window.gameNetwork.showNotification(`Joined room: ${roomId}`, 'info');
+        });
+
+        // Copy room ID
+        document.getElementById('copy-room-btn').addEventListener('click', () => {
+            const roomId = document.getElementById('room-display').innerText.replace('Room: ', '');
+            navigator.clipboard.writeText(roomId).then(() => {
+                window.gameNetwork.showNotification('📋 Room ID copied!', 'success');
+            });
+        });
+
+        // Chat
+        document.getElementById('chat-send').addEventListener('click', () => {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (message) {
+                window.gameNetwork.sendChat(message);
+                input.value = '';
+            }
+        });
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('chat-send').click();
+        });
+
+        // Rewarded Ads
+        document.getElementById('watch-ad-btn').addEventListener('click', () => {
+            showRewardedAd((success) => {
+                if (success) {
+                    coins += 20;
+                    updateUI();
+                    localStorage.setItem('balloonCoins', coins);
+                    // Also save to server
+                    if (window.gameNetwork.currentUser) {
+                        window.gameNetwork.saveProgress(20, 0, currentLevel, 0);
+                    }
+                    window.gameNetwork.showNotification('🎁 +20 Coins!', 'success');
+                    AudioEngine.playCoin();
+                }
+                document.getElementById('watch-ad-btn').classList.add('hidden');
+            });
+        });
+
+        document.getElementById('revive-ad-btn').addEventListener('click', () => {
+            showRewardedAd((success) => {
+                if (success) {
+                    document.getElementById('revive-ad-btn').classList.add('hidden');
+                    // Revive player: reset position, give invincibility briefly
+                    let startPlat = platforms[0];
+                    player.x = startPlat.x; player.y = startPlat.y - 50;
+                    player.vy = 0; player.vx = 0; player.grounded = false;
+                    GAME_STATE = 'playing';
+                    document.getElementById('gameover-screen').classList.add('hidden');
+                    document.getElementById('hud').classList.remove('hidden');
+                    window.gameNetwork.showNotification('✨ Revived!', 'success');
+                }
+            });
+        });
+
+        // ========= INIT =========
+        function init() {
+            // Try to load existing user
+            const hasUser = window.gameNetwork.loadUser();
+            
+            if (hasUser) {
+                // Update UI with loaded data
+                coins = window.gameNetwork.currentUser.coins;
+                unlockedSkins = window.gameNetwork.currentUser.unlockedSkins;
+                player.skin = window.gameNetwork.currentUser.equippedSkin;
+                highscore = window.gameNetwork.currentUser.highscore;
+                updateUI();
+                // Hide login modal
+                document.getElementById('login-modal').classList.add('hidden');
+                console.log('👋 Welcome back,', window.gameNetwork.currentUser.username);
+            } else {
+                // Show login modal
+                document.getElementById('login-modal').classList.remove('hidden');
+            }
+            
+            // Hide loading screen
+            setTimeout(() => { document.getElementById('loading')?.classList.add('hidden'); }, 500);
+            
+            // Start game loop
+            requestAnimationFrame(loop);
+            
+            // Setup resize
+            window.addEventListener('resize', resize);
+        }
+
+        // Start everything
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
