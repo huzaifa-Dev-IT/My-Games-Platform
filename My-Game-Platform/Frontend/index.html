@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NexusPlay • Premium Gaming Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      background:#0a0a0f;
+      font-family:'Inter',sans-serif;
+      color:#fff;
+      overflow-x:hidden;
+    }
+    .brand-font{font-family:'Orbitron',sans-serif}
+    
+    /* Animated Background */
+    .bg-animated{
+      position:fixed;
+      inset:0;
+      background: 
+        radial-gradient(ellipse at 20% 20%, rgba(139,92,246,0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(236,72,153,0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(6,182,212,0.05) 0%, transparent 70%);
+      z-index:-2;
+    }
+    .grid-overlay{
+      position:fixed;
+      inset:0;
+      background-image: 
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 50px 50px;
+      z-index:-1;
+    }
+    
+    /* Header Glass Effect */
+    .header-glass{
+      background:rgba(10,10,15,0.8);
+      backdrop-filter:blur(20px);
+      border-bottom:1px solid rgba(255,255,255,0.1);
+    }
+    
+    /* Game Card Premium */
+    .game-card{
+      background:linear-gradient(135deg, rgba(30,41,59,0.8), rgba(15,23,42,0.9));
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius:24px;
+      overflow:hidden;
+      transition:all 0.4s cubic-bezier(0.4,0,0.2,1);
+      position:relative;
+    }
+    .game-card::before{
+      content:'';
+      position:absolute;
+      inset:0;
+      background:linear-gradient(135deg, rgba(139,92,246,0.1), rgba(236,72,153,0.1));
+      opacity:0;
+      transition:opacity 0.4s;
+    }
+    .game-card:hover{
+      transform:translateY(-12px) scale(1.02);
+      border-color:rgba(139,92,246,0.5);
+      box-shadow:0 30px 60px rgba(139,92,246,0.3), 0 0 40px rgba(236,72,153,0.2);
+    }
+    .game-card:hover::before{opacity:1}
+    
+    /* Card Image Container */
+    .card-image{
+      height:280px;
+      background:linear-gradient(135deg, #8b5cf6, #ec4899);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .card-image::after{
+      content:'';
+      position:absolute;
+      inset:0;
+      background:linear-gradient(to bottom, transparent 0%, rgba(10,10,15,0.8) 100%);
+    }
+    .game-icon{
+      font-size:6rem;
+      z-index:1;
+      animation:float 3s ease-in-out infinite;
+      filter:drop-shadow(0 10px 30px rgba(0,0,0,0.5));
+    }
+    @keyframes float{
+      0%,100%{transform:translateY(0)}
+      50%{transform:translateY(-15px)}
+    }
+    
+    /* Card Content */
+    .card-content{
+      padding:2rem;
+      position:relative;
+      z-index:1;
+    }
+    
+    /* Tags */
+    .tag{
+      background:rgba(139,92,246,0.15);
+      color:#a78bfa;
+      padding:0.4rem 1rem;
+      border-radius:20px;
+      font-size:0.75rem;
+      font-weight:600;
+      border:1px solid rgba(139,92,246,0.3);
+    }
+    
+    /* Play Button */
+    .play-btn{
+      background:linear-gradient(135deg, #8b5cf6, #ec4899);
+      color:#fff;
+      padding:1rem 2rem;
+      border-radius:16px;
+      font-weight:700;
+      font-size:1rem;
+      border:none;
+      cursor:pointer;
+      transition:all 0.3s;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:0.75rem;
+      position:relative;
+      overflow:hidden;
+    }
+    .play-btn::before{
+      content:'';
+      position:absolute;
+      inset:0;
+      background:linear-gradient(135deg, #7c3aed, #db2777);
+      opacity:0;
+      transition:opacity 0.3s;
+    }
+    .play-btn:hover::before{opacity:1}
+    .play-btn:hover{
+      transform:scale(1.05);
+      box-shadow:0 10px 30px rgba(139,92,246,0.5);
+    }
+    .play-btn span{position:relative;z-index:1}
+    
+    /* User Panel */
+    .user-panel{
+      background:linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.9));
+      border:1px solid rgba(139,92,246,0.3);
+      padding:0.6rem 1.5rem;
+      border-radius:50px;
+      display:flex;
+      align-items:center;
+      gap:1rem;
+      backdrop-filter:blur(10px);
+    }
+    .coin-badge{
+      background:linear-gradient(135deg, #fbbf24, #f59e0b);
+      color:#000;
+      padding:0.4rem 1rem;
+      border-radius:20px;
+      font-weight:700;
+      font-size:0.9rem;
+    }
+    
+    /* Login Modal */
+    .modal-backdrop{
+      background:rgba(0,0,0,0.8);
+      backdrop-filter:blur(10px);
+    }
+    .modal-box{
+      background:linear-gradient(135deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
+      border:1px solid rgba(139,92,246,0.3);
+      border-radius:32px;
+      padding:3rem;
+      box-shadow:0 40px 80px rgba(0,0,0,0.6);
+    }
+    
+    /* Input Field */
+    .input-field{
+      background:rgba(15,23,42,0.8);
+      border:2px solid rgba(255,255,255,0.1);
+      padding:1rem 1.5rem;
+      border-radius:16px;
+      color:#fff;
+      font-size:1rem;
+      transition:all 0.3s;
+      width:100%;
+    }
+    .input-field:focus{
+      outline:none;
+      border-color:#8b5cf6;
+      box-shadow:0 0 0 4px rgba(139,92,246,0.2);
+    }
+    
+    /* Animations */
+    @keyframes glow{
+      0%,100%{box-shadow:0 0 20px rgba(139,92,246,0.5)}
+      50%{box-shadow:0 0 40px rgba(139,92,246,0.8), 0 0 60px rgba(236,72,153,0.4)}
+    }
+    .glow-effect{animation:glow 2s ease-in-out infinite}
+    
+    /* Hero Section */
+    .hero-text{
+      background:linear-gradient(135deg, #fff 0%, #a78bfa 50%, #f472b6 100%);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar{width:10px}
+    ::-webkit-scrollbar-track{background:#0a0a0f}
+    ::-webkit-scrollbar-thumb{
+      background:linear-gradient(135deg, #8b5cf6, #ec4899);
+      border-radius:5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-animated"></div>
+  <div class="grid-overlay"></div>
+
+  <!-- Header -->
+  <header class="header-glass sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 bg-gradient-to-br from-violet-500 to-pink-500 rounded-xl flex items-center justify-center text-2xl glow-effect">🎮</div>
+        <h1 class="text-3xl brand-font font-black tracking-wider">
+          NEXUS<span class="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">PLAY</span>
+        </h1>
+      </div>
+      
+      <div id="user-panel" class="hidden user-panel">
+        <div class="coin-badge">🪙 <span id="user-coins">0</span></div>
+        <div class="font-semibold" id="username-display"></div>
+        <button onclick="logout()" class="text-slate-400 hover:text-white transition">✕</button>
+      </div>
+      
+      <button id="login-btn" onclick="openLogin()" class="bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-bold px-8 py-3 rounded-2xl transition-all transform hover:scale-105 shadow-lg hover:shadow-violet-500/50">
+        Login
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="max-w-7xl mx-auto px-6 py-16">
+    <div class="text-center mb-16">
+      <h2 class="text-6xl md:text-7xl font-black brand-font mb-6 hero-text">
+        PLAY WITHOUT LIMITS
+      </h2>
+      <p class="text-xl text-slate-400 max-w-2xl mx-auto">
+        Experience next-level gaming with multiplayer action, earn coins, unlock skins & compete with players worldwide
+      </p>
+    </div>
+
+    <!-- Games Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <!-- Balloon Pop Card -->
+      <div class="game-card">
+        <div class="card-image cursor-pointer" onclick="launchGame('balloon_pop')">
+          <div class="game-icon">🎈</div>
+        </div>
+        <div class="card-content">
+          <h3 class="text-2xl font-bold mb-3 brand-font text-white">Balloon Pop Jumper</h3>
+          <p class="text-slate-400 mb-6 leading-relaxed">
+            Pop balloons, avoid spikes & lasers! Climb as high as you can in this addictive arcade masterpiece.
+          </p>
+          <div class="flex gap-2 mb-6">
+            <span class="tag">Arcade</span>
+            <span class="tag">Multiplayer</span>
+            <span class="tag">Casual</span>
+          </div>
+          <div class="flex gap-2">
+            <button class="play-btn flex-1" onclick="launchGame('balloon_pop')">
+              <span>▶️ PLAY</span>
+            </button>
+            <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 rounded-xl transition" onclick="openReviews('balloon_pop')">
+              ⭐ Reviews
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game 2 Card -->
+      <div class="game-card">
+        <div class="card-image cursor-pointer" style="background:linear-gradient(135deg, #6366f1, #8b5cf6)" onclick="launchGame('arcane_survivor')">
+          <div class="game-icon">⚔️</div>
+        </div>
+        <div class="card-content">
+          <h3 class="text-2xl font-bold mb-3 brand-font text-white">Arcane Survivor 2D</h3>
+          <p class="text-slate-400 mb-6 leading-relaxed">
+            Endless wave defense against the horde. Upgrade your magic and survive!
+          </p>
+          <div class="flex gap-2 mb-6">
+            <span class="tag" style="background:rgba(99,102,241,0.15);color:#818cf8;border-color:rgba(99,102,241,0.3)">Action</span>
+            <span class="tag" style="background:rgba(99,102,241,0.15);color:#818cf8;border-color:rgba(99,102,241,0.3)">Roguelite</span>
+          </div>
+          <div class="flex gap-2">
+            <button class="play-btn flex-1" onclick="launchGame('arcane_survivor')">
+              <span>▶️ PLAY</span>
+            </button>
+            <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 rounded-xl transition" onclick="openReviews('arcane_survivor')">
+              ⭐ Reviews
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game 3 Card -->
+      <div class="game-card">
+        <div class="card-image cursor-pointer" style="background:linear-gradient(135deg, #ec4899, #f43f5e)" onclick="launchGame('neon_survivor')">
+          <div class="game-icon">🚀</div>
+        </div>
+        <div class="card-content">
+          <h3 class="text-2xl font-bold mb-3 brand-font text-white">Neon Survivor 2D</h3>
+          <p class="text-slate-400 mb-6 leading-relaxed">
+            A breathtaking HD 2D roguelite survivors experience with dynamic nebulae.
+          </p>
+          <div class="flex gap-2 mb-6">
+            <span class="tag" style="background:rgba(236,72,153,0.15);color:#f472b6;border-color:rgba(236,72,153,0.3)">Action</span>
+            <span class="tag" style="background:rgba(236,72,153,0.15);color:#f472b6;border-color:rgba(236,72,153,0.3)">Sci-Fi</span>
+          </div>
+          <div class="flex gap-2">
+            <button class="play-btn flex-1" onclick="launchGame('neon_survivor')">
+              <span>▶️ PLAY</span>
+            </button>
+            <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 rounded-xl transition" onclick="openReviews('neon_survivor')">
+              ⭐ Reviews
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Login Modal -->
+  <div id="login-modal" class="hidden fixed inset-0 modal-backdrop z-50 flex items-center justify-center p-4">
+    <div class="modal-box max-w-md w-full text-center">
+      <div class="w-20 h-20 bg-gradient-to-br from-violet-500 to-pink-500 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-6 glow-effect">🎮</div>
+      <h2 class="text-4xl font-black brand-font mb-3 bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">WELCOME</h2>
+      <p class="text-slate-400 mb-8">Enter your username to start your gaming journey</p>
+      
+      <input type="text" id="username-input" class="input-field mb-2" placeholder="Username (3-20 characters)" maxlength="20">
+      <p class="text-xs font-bold text-red-400 mb-4 tracking-wide uppercase">REMEMBER YOUR USERNAME, YOU WON'T BE ABLE TO RECOVER IT LATER</p>
+      <p id="login-error" class="text-red-400 text-sm mb-4 hidden"></p>
+      
+      <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-bold py-4 rounded-2xl transition-all transform hover:scale-105 shadow-xl hover:shadow-violet-500/50 mb-4">
+        START PLAYING 🚀
+      </button>
+      
+      <p class="text-xs text-slate-500">No password needed • Progress auto-saved • +100 free coins</p>
+      <button onclick="closeLogin()" class="mt-4 text-slate-400 hover:text-white text-sm transition">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Reviews Modal -->
+  <div id="reviews-modal" class="hidden fixed inset-0 modal-backdrop z-50 flex items-center justify-center p-4">
+    <div class="modal-box max-w-2xl w-full flex flex-col" style="max-height: 80vh;">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-3xl font-black brand-font bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">REVIEWS</h2>
+        <button onclick="closeReviews()" class="text-slate-400 hover:text-white transition text-2xl">✕</button>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto pr-2 mb-4 space-y-4" id="reviews-list">
+        <!-- Reviews will be injected here -->
+        <div class="text-slate-400 text-center py-8">Loading reviews...</div>
+      </div>
+
+      <div class="bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
+        <h3 class="font-bold text-white mb-2">Leave a Review</h3>
+        <div id="review-form-area">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-sm text-slate-400">Rating:</span>
+            <select id="review-rating" class="bg-slate-700 text-white border border-slate-600 rounded px-2 py-1 outline-none">
+              <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
+              <option value="4">⭐⭐⭐⭐ (4/5)</option>
+              <option value="3">⭐⭐⭐ (3/5)</option>
+              <option value="2">⭐⭐ (2/5)</option>
+              <option value="1">⭐ (1/5)</option>
+            </select>
+          </div>
+          <textarea id="review-comment" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-violet-400 transition" rows="3" placeholder="What did you think about the game?"></textarea>
+          <div class="mt-2 flex justify-between items-center">
+            <p id="review-error" class="text-red-400 text-sm hidden"></p>
+            <button onclick="submitReview()" class="bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-bold py-2 px-6 rounded-xl transition-all transform hover:scale-105 ml-auto">
+              Post Review
+            </button>
+          </div>
+        </div>
+        <div id="review-login-prompt" class="hidden text-center py-4">
+          <p class="text-slate-400 mb-2">You must be logged in to leave a review.</p>
+          <button onclick="closeReviews(); openLogin();" class="text-violet-400 hover:text-violet-300 font-bold underline">Login Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '') 
+      ? 'http://localhost:3000/api' 
+      : 'https://gaming-platform-backend-hyr3.onrender.com/api';
+    let currentUser = null;
+
+    // Load saved user
+    const saved = localStorage.getItem('bp_user');
+    if(saved) {
+      currentUser = JSON.parse(saved);
+      updateUI();
+    }
+
+    function updateUI() {
+      if(!currentUser) return;
+      document.getElementById('login-btn').classList.add('hidden');
+      document.getElementById('user-panel').classList.remove('hidden');
+      document.getElementById('username-display').textContent = currentUser.username;
+      document.getElementById('user-coins').textContent = currentUser.coins;
+    }
+
+    function openLogin() {
+      document.getElementById('login-modal').classList.remove('hidden');
+    }
+
+    function closeLogin() {
+      document.getElementById('login-modal').classList.add('hidden');
+      document.getElementById('login-error').classList.add('hidden');
+    }
+
+    async function handleLogin() {
+      const username = document.getElementById('username-input').value.trim();
+      const errorEl = document.getElementById('login-error');
+      
+      if(!username || username.length < 3) {
+        errorEl.textContent = 'Username must be 3-20 characters';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        });
+        const data = await res.json();
+        
+        if(data.success) {
+          currentUser = data.user;
+          localStorage.setItem('bp_user', JSON.stringify(currentUser));
+          updateUI();
+          closeLogin();
+        } else {
+          errorEl.textContent = data.message;
+          errorEl.classList.remove('hidden');
+        }
+      } catch(err) {
+        errorEl.textContent = 'Connection error. Please try again.';
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    function logout() {
+      currentUser = null;
+      localStorage.removeItem('bp_user');
+      location.reload();
+    }
+
+    function launchGame(gameId) {
+      if (!currentUser) {
+        document.getElementById('login-modal').classList.remove('hidden');
+        const errEl = document.getElementById('login-error');
+        errEl.textContent = 'You must login to play games!';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      
+      if(gameId === 'balloon_pop') {
+        window.location.href = 'game.html';
+      } else if(gameId === 'arcane_survivor') {
+        window.location.href = 'arcane-survivors/index.html';
+      } else if(gameId === 'neon_survivor') {
+        window.location.href = 'neon-survivors/index.html';
+      }
+    }
+
+    let currentReviewGameId = null;
+
+    function openReviews(gameId) {
+      currentReviewGameId = gameId;
+      document.getElementById('reviews-modal').classList.remove('hidden');
+      document.getElementById('review-error').classList.add('hidden');
+      document.getElementById('review-comment').value = '';
+      
+      if (!currentUser) {
+        document.getElementById('review-form-area').classList.add('hidden');
+        document.getElementById('review-login-prompt').classList.remove('hidden');
+      } else {
+        document.getElementById('review-form-area').classList.remove('hidden');
+        document.getElementById('review-login-prompt').classList.add('hidden');
+      }
+
+      loadReviews(gameId);
+    }
+
+    function closeReviews() {
+      document.getElementById('reviews-modal').classList.add('hidden');
+      currentReviewGameId = null;
+    }
+
+    async function loadReviews(gameId) {
+      const listEl = document.getElementById('reviews-list');
+      listEl.innerHTML = '<div class="text-slate-400 text-center py-8">Loading reviews...</div>';
+      
+      try {
+        const res = await fetch(`${API_BASE}/reviews/${gameId}`);
+        const data = await res.json();
+        
+        if (data.success) {
+          if (data.reviews.length === 0) {
+            listEl.innerHTML = '<div class="text-slate-400 text-center py-8">No reviews yet. Be the first!</div>';
+          } else {
+            listEl.innerHTML = data.reviews.map(r => `
+              <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 text-left">
+                <div class="flex justify-between items-start mb-2">
+                  <span class="font-bold text-violet-300">@${r.username}</span>
+                  <span class="text-yellow-400">${'⭐'.repeat(r.rating)}</span>
+                </div>
+                <p class="text-slate-300 text-sm leading-relaxed">${r.comment}</p>
+                <div class="text-slate-500 text-xs mt-2">${new Date(r.createdAt).toLocaleDateString()}</div>
+              </div>
+            `).join('');
+          }
+        }
+      } catch (err) {
+        listEl.innerHTML = '<div class="text-red-400 text-center py-8">Failed to load reviews.</div>';
+      }
+    }
+
+    async function submitReview() {
+      if (!currentUser || !currentReviewGameId) return;
+      
+      const rating = document.getElementById('review-rating').value;
+      const comment = document.getElementById('review-comment').value.trim();
+      const errorEl = document.getElementById('review-error');
+      
+      if (!comment) {
+        errorEl.textContent = 'Please enter a comment.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${API_BASE}/reviews/${currentReviewGameId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: currentUser.username,
+            rating: parseInt(rating),
+            comment
+          })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          document.getElementById('review-comment').value = '';
+          errorEl.classList.add('hidden');
+          loadReviews(currentReviewGameId);
+        } else {
+          errorEl.textContent = data.message || 'Failed to submit review.';
+          errorEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorEl.textContent = 'Connection error.';
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    document.getElementById('username-input')?.addEventListener('keypress', (e) => {
+      if(e.key === 'Enter') handleLogin();
+    });
+  </script>
+</body>
+</html>

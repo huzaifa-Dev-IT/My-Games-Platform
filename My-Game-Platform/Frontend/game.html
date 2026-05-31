@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Balloon Pop Jumper - Multiplayer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <!-- GameDistribution SDK (Ads) - Replace YOUR_GAME_ID after approval -->
+    <script src="https://html5.api.gamedistribution.com/main.min.js"></script>
+    <script>
+      window.GD_OPTIONS = {
+        gameId: 'YOUR_GAME_ID_HERE', // <-- Replace after GameDistribution approval
+        onEvent: function(event) {
+          if (event.name === 'SDK_READY') {
+            console.log('🎮 GameDistribution SDK ready');
+            window.gdReady = true;
+          }
+          if (event.name === 'SDK_GAME_PAUSE') {
+            console.log('🎮 Game paused for ad');
+          }
+          if (event.name === 'SDK_GAME_START') {
+            console.log('🎮 Game resumed after ad');
+          }
+        }
+      };
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap');
+        
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #87CEEB;
+            font-family: 'Nunito', sans-serif; touch-action: none;
+        }
+        
+        h1, h2, h3, .brand-font { font-family: 'Fredoka One', cursive; }
+
+        #game-canvas { display: block; width: 100%; height: 100%; }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px);
+            z-index: 10; transition: opacity 0.3s;
+        }
+        .hidden { display: none !important; }
+
+        .btn {
+            background: linear-gradient(to bottom, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+            border: 4px solid #fff; box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+            color: #d13875; transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .btn:active { transform: scale(0.95) translateY(4px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .btn-shop { background: linear-gradient(to bottom, #a18cd1 0%, #fbc2eb 100%); color: #5b4b8a; }
+
+        .shop-item { transition: transform 0.2s; }
+        .shop-item.locked { filter: grayscale(100%); opacity: 0.7; }
+        .shop-item:active { transform: scale(0.9); }
+        .shop-item.selected { border-color: #4ade80; box-shadow: 0 0 15px #4ade80; }
+
+        #hud {
+            position: absolute; top: 0; left: 0; width: 100%; padding: 1rem;
+            display: flex; justify-content: space-between; pointer-events: none; z-index: 5;
+        }
+        .hud-text {
+            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0 4px 8px rgba(0,0,0,0.3);
+            font-size: 1.5rem; color: #333;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shaking { animation: shake 0.2s; animation-iteration-count: 1; }
+
+        @keyframes flashRed {
+            0% { background-color: rgba(255, 0, 0, 0.5); }
+            100% { background-color: transparent; }
+        }
+        .flash-red-active { animation: flashRed 0.5s ease-out; }
+        
+        .flash-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 20;
+        }
+        
+        /* Login Modal */
+        #login-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+        .login-box {
+            background: white; padding: 2rem; border-radius: 1rem;
+            max-width: 400px; width: 90%; text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .login-input {
+            width: 100%; padding: 0.75rem; margin: 0.5rem 0;
+            border: 2px solid #ddd; border-radius: 0.5rem; font-size: 1rem;
+        }
+        .login-input:focus { outline: none; border-color: #ec4899; }
+        
+        /* Multiplayer UI */
+        #multiplayer-panel {
+            position: absolute; top: 1rem; right: 1rem;
+            background: rgba(255,255,255,0.9); padding: 0.5rem 1rem;
+            border-radius: 1rem; font-size: 0.9rem; z-index: 6;
+            display: none;
+        }
+        #multiplayer-panel.visible { display: block; }
+        
+        /* Chat */
+        #chat-panel {
+            position: absolute; bottom: 1rem; left: 1rem; right: 1rem;
+            background: rgba(255,255,255,0.95); border-radius: 1rem;
+            padding: 0.5rem; z-index: 7; display: none; max-height: 150px;
+            overflow-y: auto;
+        }
+        #chat-panel.visible { display: block; }
+        .chat-message { margin: 0.25rem 0; font-size: 0.85rem; }
+        .chat-message strong { color: #ec4899; }
+        
+        /* Loading */
+        #loading {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #87CEEB; display: flex; justify-content: center; align-items: center;
+            z-index: 9999; font-family: 'Nunito', sans-serif; font-size: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loading">🎈 Loading Balloon Pop...</div>
+
+    <!-- Login Modal (First Time) -->
+    <div id="login-modal" class="hidden">
+        <div class="login-box">
+            <h2 class="text-2xl font-bold mb-4 brand-font text-pink-500">Welcome!</h2>
+            <p class="text-gray-600 mb-4">Choose a username to save your progress:</p>
+            <input type="text" id="username-input" class="login-input" placeholder="Username (3-20 chars)" maxlength="20">
+            <p id="login-error" class="text-red-500 text-sm mb-2 hidden"></p>
+            <button id="login-btn" class="btn brand-font text-xl py-2 px-6 rounded-full w-full mt-2">PLAY NOW 🎈</button>
+            <p class="text-xs text-gray-400 mt-4">No password needed • Progress saved on server</p>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden brand-font">
+        <div class="flex items-center gap-2">
+            <span class="text-4xl text-yellow-400 drop-shadow-md">🪙</span>
+            <span id="coin-display" class="hud-text">0</span>
+        </div>
+        <div class="flex flex-col items-end">
+            <div class="hud-text text-3xl text-pink-500" id="score-display">0% Target</div>
+            <div class="hud-text text-sm text-gray-600">Lvl <span id="highscore-display">1</span></div>
+        </div>
+    </div>
+
+    <!-- Multiplayer Panel -->
+    <div id="multiplayer-panel" class="brand-font">
+        <span id="room-display">Room: </span>
+        <button id="copy-room-btn" class="ml-2 text-xs bg-blue-400 text-white px-2 py-1 rounded">📋 Copy</button>
+    </div>
+
+    <!-- Chat Panel -->
+    <div id="chat-panel">
+        <div id="chat-messages"></div>
+        <div class="flex gap-2 mt-2">
+            <input type="text" id="chat-input" class="flex-1 px-2 py-1 border rounded text-sm" placeholder="Type...">
+            <button id="chat-send" class="bg-pink-400 text-white px-3 py-1 rounded text-sm">Send</button>
+        </div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="menu-screen" class="overlay">
+        <div class="bg-white/80 p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full mx-4 border-4 border-pink-200">
+            <h1 class="text-5xl text-pink-500 mb-2 drop-shadow-sm">Balloon Pop</h1>
+            <h2 class="text-3xl text-blue-400 mb-6 drop-shadow-sm">Jumper</h2>
+            <p class="text-gray-700 mb-6 font-bold">
+                👆 Tap to Jump<br>
+                ↔️ Drag to Move<br>
+                🎈 Pop balloons, avoid spikes & lasers!
+            </p>
+            <button id="start-btn" class="btn brand-font text-2xl py-3 px-8 rounded-full w-full mb-4">PLAY</button>
+            <button id="open-shop-btn" class="btn btn-shop brand-font text-xl py-3 px-8 rounded-full w-full flex justify-center items-center gap-2">
+                <span>🛒</span> Shop
+            </button>
+            <button id="multiplayer-btn" class="mt-4 bg-purple-400 hover:bg-purple-500 text-white font-bold py-2 px-6 rounded-full transition-colors">
+                👥 Multiplayer Room
+            </button>
+        </div>
+    </div>
+
+    <!-- Level Complete Screen -->
+    <div id="level-complete-screen" class="overlay hidden">
+        <div class="bg-white/90 p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full mx-4 border-4 border-green-300">
+            <h1 class="text-5xl text-green-500 mb-4 drop-shadow-sm">LEVEL PASSED!</h1>
+            <p class="text-xl text-gray-700 mb-2 font-bold">Balloons Popped: <span id="level-popped" class="text-pink-500">0</span> / <span id="level-total">0</span></p>
+            <p class="text-lg text-gray-600 mb-6 font-bold">Bonus Coins: +<span id="level-bonus-coins" class="text-yellow-500">0</span></p>
+            
+            <!-- Rewarded Ad Button -->
+            <button id="watch-ad-btn" class="mb-4 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full w-full flex items-center justify-center gap-2">
+                🎁 Watch Ad for +20 Coins
+            </button>
+            
+            <button id="next-level-btn" class="btn brand-font text-2xl py-3 px-8 rounded-full w-full mb-4">NEXT LEVEL</button>
+            <button class="menu-return-btn bg-blue-300 hover:bg-blue-400 text-white font-bold py-3 px-8 rounded-full w-full transition-colors border-4 border-white shadow-md">MAIN MENU</button>
+        </div>
+    </div>
+
+    <!-- Shop Screen -->
+    <div id="shop-screen" class="overlay hidden">
+        <div class="bg-white/90 p-6 rounded-3xl shadow-2xl max-w-md w-full mx-4 border-4 border-purple-300 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl text-purple-600 brand-font">Skin Shop</h2>
+                <div class="flex items-center gap-2 font-bold text-xl">
+                    <span>🪙</span> <span id="shop-coin-display">0</span>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4" id="shop-items-container">
+                <!-- Shop items injected here via JS -->
+            </div>
+
+            <button id="close-shop-btn" class="mt-6 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-full w-full transition-colors">Back to Menu</button>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameover-screen" class="overlay hidden">
+        <div class="bg-white/90 p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full mx-4 border-4 border-red-300">
+            <h1 class="text-5xl text-red-500 mb-4 drop-shadow-sm" id="gameover-title">POP!</h1>
+            <p class="text-lg text-gray-600 mb-6 font-bold">Coins Collected: +<span id="final-coins" class="text-yellow-500">0</span></p>
+            <p class="text-md text-red-600 mb-4 font-bold" id="gameover-reason"></p>
+            
+            <!-- Rewarded Ad for Revive -->
+            <button id="revive-ad-btn" class="mb-4 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full w-full flex items-center justify-center gap-2 hidden">
+                🎁 Watch Ad to Revive!
+            </button>
+            
+            <button id="restart-btn" class="btn brand-font text-2xl py-3 px-8 rounded-full w-full mb-4">TRY AGAIN</button>
+            <button class="menu-return-btn bg-blue-300 hover:bg-blue-400 text-white font-bold py-3 px-8 rounded-full w-full transition-colors border-4 border-white shadow-md">MAIN MENU</button>
+        </div>
+    </div>
+
+    <div id="flash-overlay" class="flash-overlay"></div>
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Touch Controls for mobile jumping -->
+    <div id="touch-controls" class="absolute bottom-4 left-0 w-full flex justify-around px-8 hidden z-10 pointer-events-none">
+        <button id="btn-left" class="pointer-events-auto bg-white/50 backdrop-blur-sm border-2 border-white w-20 h-20 rounded-full text-3xl shadow-lg active:bg-white/80 transition-colors">⬅️</button>
+        <button id="btn-jump" class="pointer-events-auto bg-pink-400/80 backdrop-blur-sm border-2 border-white w-24 h-24 rounded-full text-4xl shadow-lg active:bg-pink-500 transition-colors text-white font-bold">JUMP</button>
+        <button id="btn-right" class="pointer-events-auto bg-white/50 backdrop-blur-sm border-2 border-white w-20 h-20 rounded-full text-3xl shadow-lg active:bg-white/80 transition-colors">➡️</button>
+    </div>
+
+    <!-- NETWORK & AUTH MODULE (Embedded) -->
+    
+
+    <!-- YOUR ORIGINAL GAME SCRIPT (MODIFIED FOR SERVER SYNC) -->
+    
+    <script src="game.js"></script>
+</body>
+</html>

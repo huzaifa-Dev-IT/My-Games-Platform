@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Neon Survivors - HD 2D Roguelite</title>
+    <!-- Tailwind CSS for modern futuristic styling panels -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Rajdhani for ultra-sharp high-tech gaming typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for vector icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #030408;
+            color: #f3f4f6;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        .scifi-font {
+            font-family: 'Rajdhani', sans-serif;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        /* Glassmorphism styling with clean glow */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .glass-panel-glow {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(34, 211, 238, 0.4);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+        }
+        /* Pulsing custom animation for neon effects */
+        @keyframes cyberPulse {
+            0%, 100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.3), inset 0 0 5px rgba(59, 130, 246, 0.2); }
+            50% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.6), inset 0 0 10px rgba(59, 130, 246, 0.4); }
+        }
+        .cyber-glow {
+            animation: cyberPulse 2.5s infinite;
+        }
+        /* Container screen vibration framework */
+        #game-container.shake {
+            animation: screenVibrate 0.22s ease-in-out infinite;
+        }
+        @keyframes screenVibrate {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-3px, 3px); }
+            40% { transform: translate(3px, -3px); }
+            60% { transform: translate(-3px, -3px); }
+            80% { transform: translate(3px, 3px); }
+        }
+        /* Custom scrollbar to keep layout clean */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 15, 30, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5);
+            border-radius: 4px;
+        }
+        /* Prevent canvas zoom behavior on double taps */
+        canvas {
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen flex items-center justify-center select-none overflow-hidden">
+
+    <!-- Main HD Game Container -->
+    <div id="game-container" class="relative w-full h-full flex items-center justify-center overflow-hidden">
+        
+        <!-- Game HD Canvas -->
+        <canvas id="gameCanvas" class="absolute inset-0 block w-full h-full"></canvas>
+
+        <!-- ================= HUD Overlay ================= -->
+        <div id="hud" class="absolute top-0 left-0 w-full p-3 md:p-5 pointer-events-none flex flex-col gap-2 z-10 hidden">
+            <!-- XP Progress Bar (Top) -->
+            <div class="w-full flex items-center gap-3">
+                <span class="scifi-font text-xs md:text-sm font-bold text-cyan-400">LV.<span id="hud-level">1</span></span>
+                <div class="flex-1 h-3 bg-slate-950/85 rounded-full overflow-hidden border border-cyan-500/20 backdrop-blur-md p-[2px]">
+                    <div id="hud-xp-bar" class="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 rounded-full transition-all duration-100 shadow-[0_0_10px_rgba(6,182,212,0.5)]" style="width: 0%"></div>
+                </div>
+                <span class="text-xs md:text-sm font-bold text-slate-400 whitespace-nowrap"><span id="hud-xp-num">0</span>/<span id="hud-xp-max">100</span> XP</span>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="flex justify-between items-center mt-1">
+                <!-- Health Bar (Left) -->
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-heart text-rose-500 text-sm md:text-lg animate-pulse"></i>
+                    <div class="w-32 md:w-56 h-4 bg-slate-950/80 rounded border border-rose-500/35 overflow-hidden flex items-center justify-center relative p-[1px] shadow-[0_0_8px_rgba(244,63,94,0.15)]">
+                        <div id="hud-hp-bar" class="absolute left-0 top-0 h-full bg-gradient-to-r from-rose-600 via-red-500 to-orange-500 transition-all duration-150" style="width: 100%"></div>
+                        <span id="hud-hp-text" class="absolute z-10 text-[10px] md:text-xs font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">100 / 100</span>
+                    </div>
+                </div>
+
+                <!-- Wave Timer & Status (Center) -->
+                <div class="flex flex-col items-center">
+                    <div class="px-3.5 py-1.5 bg-slate-950/90 border border-cyan-500/35 rounded-full backdrop-blur-xl flex items-center gap-2.5 shadow-xl pointer-events-auto">
+                        <span class="scifi-font text-xs md:text-sm font-bold text-yellow-400 tracking-wider" id="hud-wave-label">WAVE 1</span>
+                        <div class="w-[1px] h-3.5 bg-slate-700"></div>
+                        <span class="scifi-font text-sm md:text-lg text-white font-bold font-mono" id="hud-timer">60s</span>
+                        <button id="btn-pause-game" class="text-slate-400 hover:text-white transition-colors ml-1 focus:outline-none" title="Pause Game">
+                            <i class="fa-solid fa-pause text-xs md:text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Currency & Scores (Right) -->
+                <div class="flex items-center gap-2 md:gap-4 text-xs">
+                    <div class="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg shadow-md">
+                        <i class="fa-solid fa-coins text-amber-400 animate-bounce text-xs md:text-sm"></i>
+                        <span class="font-bold text-amber-300 font-mono text-xs md:text-sm" id="hud-gold">0</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 border border-rose-500/30 rounded-lg shadow-md">
+                        <i class="fa-solid fa-skull text-rose-400 text-xs md:text-sm"></i>
+                        <span class="font-bold text-rose-300 font-mono text-xs md:text-sm" id="hud-kills">0</span>
+                    </div>
+                    <div class="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg shadow-md">
+                        <i class="fa-solid fa-crown text-emerald-400 text-sm"></i>
+                        <span class="font-bold text-emerald-300 font-mono text-sm" id="hud-score">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Boss Warning Message -->
+            <div id="boss-alert-banner" class="hidden self-center px-6 py-2.5 bg-rose-950/95 border border-rose-500 rounded-lg text-rose-200 scifi-font text-xs md:text-sm animate-pulse tracking-widest shadow-2xl shadow-rose-950/60 mt-2">
+                ⚠️ WAVE BOSS DETECTED: ENGAGE DEFENSES! ⚠️
+            </div>
+
+            <!-- Boss Active Health Bar -->
+            <div id="boss-hud-health" class="hidden w-2/3 md:w-1/2 self-center flex flex-col gap-1 items-center mt-2 bg-slate-950/95 border border-rose-500/30 p-2 rounded-xl backdrop-blur-md shadow-2xl">
+                <div class="flex justify-between w-full text-[10px] md:text-xs scifi-font text-rose-400 font-bold">
+                    <span id="boss-name-hud">BOSS RAVAGER</span>
+                    <span id="boss-pct-hud">100%</span>
+                </div>
+                <div class="w-full h-2.5 bg-slate-900 border border-slate-800 rounded-full p-[1px] overflow-hidden">
+                    <div id="boss-hp-inner" class="h-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 rounded-full transition-all duration-75 shadow-[0_0_8px_rgba(244,63,94,0.6)]" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <!-- Dash Charge Indicators & Cooldown Tracker -->
+            <div class="flex items-center gap-1.5 self-start mt-1 bg-slate-950/70 p-1.5 px-3 border border-slate-800/80 rounded-lg backdrop-blur-md">
+                <i class="fa-solid fa-wind text-cyan-400 text-xs animate-pulse"></i>
+                <span class="text-[10px] md:text-xs text-slate-300 scifi-font font-bold tracking-wider">DASH CORE</span>
+                <div id="hud-dash-slots" class="flex gap-1.5 ml-2">
+                    <!-- Dynamic slots inside JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Touch Controls (Responsive Mobile Floating Joystick) -->
+        <div id="joystick-zone" class="absolute bottom-10 left-10 w-28 h-28 md:w-36 md:h-36 bg-slate-950/50 rounded-full border border-cyan-500/15 flex items-center justify-center pointer-events-auto touch-none z-10 hidden shadow-[0_0_20px_rgba(6,182,212,0.05)]">
+            <div id="joystick-knob" class="w-12 h-12 md:w-16 md:h-16 bg-cyan-500/25 rounded-full border border-cyan-400/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]"></div>
+        </div>
+
+        <!-- Dedicated Responsive Touch Dash Button for Mobile -->
+        <button id="touch-dash-btn" class="absolute bottom-10 right-10 w-20 h-20 md:w-24 md:h-24 rounded-full bg-cyan-600/20 border-2 border-cyan-400/40 flex flex-col items-center justify-center text-cyan-300 active:bg-cyan-500/40 active:scale-95 shadow-xl shadow-cyan-950/40 transition-all z-10 hidden">
+            <i class="fa-solid fa-wind text-2xl"></i>
+            <span class="text-[9px] font-bold mt-1.5 tracking-widest scifi-font">DASH</span>
+        </button>
+
+        <!-- Toggle Audio & CRT Settings Controls -->
+        <div class="absolute bottom-4 right-36 md:right-4 flex gap-2 z-20">
+            <button id="btn-crt-effect" class="w-9 h-9 md:w-11 md:h-11 rounded-full bg-slate-950/90 border border-slate-800 flex items-center justify-center text-cyan-400 hover:text-white transition-all shadow-lg" title="Toggle CRT Filter">
+                <i class="fa-solid fa-tv text-xs md:text-sm"></i>
+            </button>
+            <button id="btn-audio-synth" class="w-9 h-9 md:w-11 md:h-11 rounded-full bg-slate-950/90 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-lg" title="Mute Ambient Synth">
+                <i class="fa-solid fa-music text-xs md:text-sm"></i>
+            </button>
+            <button id="btn-sound-effects" class="w-9 h-9 md:w-11 md:h-11 rounded-full bg-slate-950/90 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-lg" title="Mute SFX">
+                <i class="fa-solid fa-volume-high text-xs md:text-sm"></i>
+            </button>
+        </div>
+
+        <!-- ================= START SCREEN ================= -->
+        <div id="start-screen" class="absolute inset-0 bg-slate-955/95 flex flex-col items-center justify-center p-4 z-30 transition-all duration-300 overflow-y-auto">
+            <div class="max-w-xl w-full text-center space-y-5 md:space-y-7">
+                <h1 class="scifi-font text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-500 bg-clip-text text-transparent neon-glow leading-normal tracking-widest py-2">
+                    NEON SURVIVORS
+                </h1>
+                <p class="text-slate-400 text-xs md:text-sm max-w-md mx-auto leading-relaxed">
+                    A breathtaking HD 2D roguelite survivors experience. Dynamic real-time space nebula shifting backgrounds, simplified upgrades, and deep modern weaponry.
+                </p>
+
+                <!-- Action Controls Block -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left max-w-md mx-auto">
+                    <div class="glass-panel p-4 rounded-xl border border-blue-500/20 shadow-md">
+                        <h3 class="scifi-font font-bold text-xs text-blue-400 mb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-keyboard"></i> Desktop Controls
+                        </h3>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">
+                            Move: <span class="text-blue-300 font-bold">WASD / Arrow Keys</span><br>
+                            Dash: <span class="text-cyan-400 font-bold">Spacebar</span> (Invincible)
+                        </p>
+                    </div>
+                    <div class="glass-panel p-4 rounded-xl border border-cyan-500/20 shadow-md">
+                        <h3 class="scifi-font font-bold text-xs text-cyan-400 mb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-mobile-screen"></i> Mobile Controls
+                        </h3>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">
+                            Left side: Drag for <span class="text-cyan-300 font-bold">Joystick</span><br>
+                            Right side: Tap <span class="text-cyan-300 font-bold">Dash Button</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- High Score Dashboard -->
+                <div class="glass-panel p-3 rounded-xl max-w-xs mx-auto text-center border-indigo-500/30">
+                    <span class="text-[10px] text-indigo-300 scifi-font tracking-widest block mb-0.5">Your All-Time Best</span>
+                    <span class="scifi-font text-lg font-bold text-indigo-400" id="menu-high-score">0</span>
+                </div>
+
+                <!-- Start Action Button -->
+                <div>
+                    <button id="btn-start" class="scifi-font bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs py-4 px-10 rounded-xl shadow-lg border border-blue-400/20 transform hover:-translate-y-0.5 transition-all cyber-glow">
+                        START SURVIVAL
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= SHOP BETWEEN WAVES ================= -->
+        <div id="shop-screen" class="absolute inset-0 bg-slate-950/95 flex items-center justify-center p-3 md:p-6 z-20 hidden">
+            <div class="max-w-4xl w-full glass-panel-glow rounded-2xl shadow-2xl p-4 md:p-6 flex flex-col max-h-[96vh] md:max-h-[90vh]">
+                
+                <!-- Shop Header -->
+                <div class="flex justify-between items-center border-b border-slate-800/80 pb-3 mb-3 shrink-0">
+                    <div>
+                        <h2 class="scifi-font font-extrabold text-sm md:text-xl text-yellow-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-cart-shopping"></i> UPGRADE TERMINAL
+                        </h2>
+                        <p class="text-slate-400 text-xs mt-0.5">Modify ship core specifications before initiating the next wave.</p>
+                    </div>
+                    <div class="flex items-center gap-2 bg-amber-500/10 border border-amber-500/35 px-4 py-2 rounded-xl shadow-md">
+                        <i class="fa-solid fa-coins text-amber-400 text-md animate-pulse"></i>
+                        <span class="scifi-font font-bold text-amber-300 font-mono text-sm" id="shop-wallet">0</span>
+                    </div>
+                </div>
+
+                <!-- Grid Layout: Upgrades / Stats -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-y-auto pr-1.5 mb-3 flex-1 min-h-0">
+                    <!-- Shop Items Grid (Left 2 Columns) -->
+                    <div class="lg:col-span-2 space-y-2">
+                        <h3 class="text-[10px] font-bold text-slate-400 scifi-font tracking-widest mb-1">Available Weapon Systems & Buffs</h3>
+                        <div id="shop-items-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <!-- Shop items generated dynamically in JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Weapon Unlocks & Stats Pane (Right 1 Column) -->
+                    <div class="bg-slate-950/85 rounded-xl border border-slate-800 p-4 space-y-4 shadow-inner text-left">
+                        <h3 class="text-[11px] font-bold text-cyan-400 scifi-font tracking-widest flex items-center gap-1">
+                            <i class="fa-solid fa-chart-simple"></i> Core Specifications
+                        </h3>
+                        
+                        <!-- Core stats listing -->
+                        <div class="space-y-2 text-xs text-slate-300" id="shop-stats-list">
+                            <!-- Stats elements injected by JS -->
+                        </div>
+
+                        <!-- Passive weapon list showing evolution steps -->
+                        <div class="pt-3 border-t border-slate-800/80 space-y-2">
+                            <h4 class="text-[10px] font-bold text-indigo-400 scifi-font tracking-wider">Installed Modifications</h4>
+                            <div id="shop-weapon-visualizers" class="grid grid-cols-2 gap-2">
+                                <!-- Weapon visual bars showing dynamic evolution steps -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="flex items-center justify-between border-t border-slate-800/80 pt-3 shrink-0 mt-auto">
+                    <div class="text-[11px] text-slate-400 max-w-[60%] leading-normal">
+                        Wave threat will scale by <span class="text-rose-400 font-bold">20%</span> and enemy dimensions scale by <span class="text-rose-400 font-bold">5%</span> (capped at maximum 2x).
+                    </div>
+                    <button id="btn-next-wave" class="scifi-font bg-gradient-to-r from-emerald-600 via-teal-600 to-teal-700 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-[10px] md:text-xs py-3 px-6 rounded-lg shadow-lg border border-emerald-400/20 transition-all transform hover:-translate-y-0.5">
+                        LAUNCH WAVE <i class="fa-solid fa-chevron-right ml-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= WAVE CLEAR MODAL ================= -->
+        <div id="wave-clear-screen" class="absolute inset-0 bg-slate-950/90 flex items-center justify-center p-4 z-20 hidden">
+            <div class="glass-panel rounded-2xl p-6 max-w-sm w-full text-center space-y-5 shadow-2xl">
+                <div class="w-14 h-14 bg-emerald-500/10 border border-emerald-500/35 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                    <i class="fa-solid fa-circle-check text-emerald-400 text-2xl animate-bounce"></i>
+                </div>
+                <div>
+                    <h2 class="scifi-font font-extrabold text-sm md:text-md text-emerald-400">WAVE SURVIVED!</h2>
+                    <p class="text-slate-400 text-xs mt-0.5 leading-relaxed">Excellent tactical maneuvers. Core parameters are stable.</p>
+                </div>
+
+                <div class="bg-slate-950/90 rounded-xl p-4 border border-slate-800 space-y-2.5 text-left text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400">Threats Eliminated:</span>
+                        <span class="font-bold text-rose-300 font-mono" id="clear-kills">0</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400">Survival Points:</span>
+                        <span class="font-bold text-yellow-300 font-mono" id="clear-score">0</span>
+                    </div>
+                    <div class="h-[1px] bg-slate-800"></div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-emerald-400 font-semibold">Bonus Currency:</span>
+                        <span class="scifi-font text-[10px] text-amber-300 font-mono" id="clear-bonus">+0</span>
+                    </div>
+                </div>
+
+                <button id="btn-open-shop" class="scifi-font w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-[10px] rounded-lg shadow-lg border border-blue-400/20">
+                    ACCESS UPGRADE TERMINAL
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= PAUSE MODAL ================= -->
+        <div id="pause-screen" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-25 hidden">
+            <div class="glass-panel rounded-2xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl">
+                <div class="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto border border-slate-700 animate-pulse">
+                    <i class="fa-solid fa-circle-pause text-blue-400 text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="scifi-font font-bold text-xs md:text-sm text-blue-400 uppercase tracking-wider">System Paused</h2>
+                    <p class="text-slate-400 text-xs mt-0.5 leading-tight">Tactical algorithms have been safely suspended.</p>
+                </div>
+
+                <button id="btn-resume-game" class="scifi-font w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-[10px] rounded-lg shadow-lg border border-blue-400/20">
+                    RESUME FLIGHT <i class="fa-solid fa-play ml-0.5"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= CUSTOM CONFIRMATION OVERLAY ================= -->
+        <div id="confirm-modal" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-40 hidden">
+            <div class="glass-panel p-5 max-w-sm w-full text-center space-y-4 shadow-2xl">
+                <div class="w-10 h-10 bg-rose-500/10 border border-rose-500/35 rounded-full flex items-center justify-center mx-auto">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-500 text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="scifi-font text-xs font-bold text-slate-200">Reset Structural Progress?</h3>
+                    <p class="text-slate-400 text-[11px] mt-1.5 leading-relaxed">This resets all purchased system upgrades, scores, and battle records permanently. This cannot be undone.</p>
+                </div>
+                <div class="flex gap-2 text-xs font-bold">
+                    <button id="btn-confirm-cancel" class="flex-1 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                        CANCEL
+                    </button>
+                    <button id="btn-confirm-accept" class="flex-1 py-2 rounded bg-rose-600 hover:bg-rose-500 text-white shadow-lg">
+                        WIPE MEMORY
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= GAME OVER SCREEN ================= -->
+        <div id="gameover-screen" class="absolute inset-0 bg-slate-955/95 flex items-center justify-center p-4 z-20 hidden overflow-y-auto">
+            <div class="max-w-xl w-full glass-panel rounded-2xl p-5 md:p-7 shadow-2xl space-y-5 max-h-[96vh]">
+                
+                <div class="text-center space-y-1">
+                    <span class="scifi-font text-2xl md:text-3xl text-rose-500 font-extrabold block">SYSTEM DEACTIVATED</span>
+                    <span class="text-slate-400 text-xs block">Your ship reactor has collapsed. Your ledger remains.</span>
+                </div>
+
+                <!-- Stats Summary Block -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg text-center">
+                        <span class="text-[9px] text-slate-400 scifi-font block mb-0.5">Final Score</span>
+                        <span class="scifi-font text-xs md:text-sm font-bold text-yellow-400 font-mono" id="gov-score">0</span>
+                    </div>
+                    <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg text-center">
+                        <span class="text-[9px] text-slate-400 scifi-font block mb-0.5">Max Wave</span>
+                        <span class="scifi-font text-xs md:text-sm font-bold text-blue-400 font-mono" id="gov-wave">0</span>
+                    </div>
+                    <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg text-center">
+                        <span class="text-[9px] text-slate-400 scifi-font block mb-0.5">Kills</span>
+                        <span class="scifi-font text-xs md:text-sm font-bold text-rose-400 font-mono" id="gov-kills">0</span>
+                    </div>
+                    <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg text-center">
+                        <span class="text-[9px] text-slate-400 scifi-font block mb-0.5">Total Levels</span>
+                        <span class="scifi-font text-xs md:text-sm font-bold text-indigo-400 font-mono" id="gov-level">1</span>
+                    </div>
+                </div>
+
+                <!-- Scoreboard section -->
+                <div class="bg-slate-950/85 border border-slate-800 p-3.5 rounded-xl space-y-2">
+                    <h3 class="text-[10px] font-bold text-slate-300 scifi-font tracking-widest flex items-center gap-1 border-b border-slate-800 pb-1.5">
+                        <i class="fa-solid fa-trophy text-amber-400"></i> LEADERBOARD ENTRIES
+                    </h3>
+                    <div class="space-y-1 max-h-[140px] overflow-y-auto pr-1" id="gov-leaderboard-container">
+                        <!-- Instantiated by JS -->
+                    </div>
+                </div>
+
+                <!-- Action Button Cluster -->
+                <div class="flex flex-col sm:flex-row gap-2 text-xs">
+                    <button id="btn-restart" class="scifi-font flex-1 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 text-white font-bold rounded-lg shadow-lg">
+                        REBOOT CONSOLE
+                    </button>
+                    <button id="btn-wipe-storage" class="scifi-font py-3.5 px-5 bg-slate-850 text-slate-400 hover:text-white rounded-lg border border-slate-700 transition-colors">
+                        WIPE MEMORY
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    
+    <script src="game.js"></script>
+</body>
+</html>
